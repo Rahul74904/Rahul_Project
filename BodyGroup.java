@@ -1,0 +1,4502 @@
+package tp.xt;
+
+import java.io.*;
+import java.util.*;
+import javax.swing.*;
+class BodyGroup
+{
+	XMLObjects xmlObj;
+	RandomAccessFile fin;
+	String tempNomen="";
+	static String append_seclan="";
+	static String hyperlink_id="";
+	static String tableContents="\r\n\\begin{Textoc}";
+	static String con_edu = "";
+	static int paraNo=0;
+	static int coutsection=0;
+	boolean isbodySection=false;
+	boolean isackcheck=false;
+	boolean isackpresent=false;
+	boolean issecID=false;
+	StringBuffer ModleBySevtion=new StringBuffer();
+	StringBuffer ModleByGCB=new StringBuffer();
+	static boolean firstSection=false;
+	public static String section_title_aenj="";//24-09-2010
+	public static int planref=1;//Updated on 11-05-2015 for TOC auto pagerange
+	int iam=0;
+	XT xt=new XT();
+	tp.xt.XTLogger xt_log=tp.xt.XTLogger.getInstance();
+	StringBuffer sbr= new StringBuffer();//[19/03/2007]
+	
+	BodyGroup()
+	{
+	}
+	BodyGroup(XMLObjects xmlObj)throws java.io.IOException
+	{
+		this.xmlObj  = xmlObj;
+		this.fin     = xmlObj.fin;
+	
+	}
+
+	public String getBodyContents()throws java.io.IOException
+	{
+		StringBuffer bodyContents= new StringBuffer();
+		XT modXt=new XT();
+		boolean modelDSec=modXt.chekJidAid(xmlObj.jid, xmlObj.aid);
+		String tag= "";
+		while (!tag.equals("</BODY>"))
+		{
+			char ch= (char)fin.read();
+			if (ch=='<')
+			{
+				tag= xmlObj.getTag().toUpperCase();
+			// if (tag.startsWith("<CE:TEXTBOX"))
+				{
+					//System.out.println("tag==> "+tag);
+					//System.in.read();
+				}
+				if (tag.equals("<CE:SALUTATION>"))
+				{
+					bodyContents.append("\\NewSalutation{"+xmlObj.extractData("</CE:SALUTATION>", true)+"}");
+				}
+				//added by avinandan on 11-8-04
+				else if(tag.equals("</CE:TEXTBOX-BODY>"))
+					break;
+				//end mark
+				else if (tag.equals("<CE:NOMENCLATURE>"))
+				{
+					tempNomen="";
+					if(xmlObj.jid.equals("MEMSCI"))
+					{
+						tempNomen=processNomenclature();
+					}
+					else
+					{
+						bodyContents.append(processNomenclature());
+					}
+				}
+				else if (tag.startsWith("<CE:NOMENCLATURE "))//28-08-2012 JADTD520 Updation
+				{
+					tempNomen="";
+					if(xmlObj.jid.equals("MEMSCI"))
+					{
+						tempNomen=processNomenclature();
+					}
+					else
+					{
+						bodyContents.append(processNomenclature());
+					}
+				}
+				
+				if (tag.equals("<CE:SECTIONS>"))
+				{
+					bodyContents.append(processSections("</CE:SECTIONS>"));
+					//bodyContents.append(sbr);
+					//Added by Avinandan till end
+					//mark
+				
+					if((xmlObj.jid.equals("YDLD")) && ((xmlObj.abrKwd.length()>0)))
+					{
+						//bodyContents.append(xmlObj.abrKwd);//old
+						//[Added By Ravi 21/12/2006]
+						//Change Request By Vivek. 
+						//Change Point: Abbr must be come at end of body sections
+						coutsection++;
+						if(XT.sectionNo==coutsection)
+							{
+							String st=xmlObj.abrKwd.toString();
+								//System.out.println("xmlObj.abrKwd  -- >  "+st);
+								//System.in.read();
+								//************************************************
+									//[Added By Ravi 03/05/2007]
+									//Change Request By Subrata. 
+									//Change Point: deleting query tag in xml file
+									 StringBuffer sg=new StringBuffer(st);
+									 int po=0;
+									 //\backslashprotect\backslashqtoa\{
+										while((po=sg.indexOf("\\backslashprotect\\backslashqtoa\\{",po+1))!=-1)
+										{
+											int pt=sg.indexOf("\\}",po+1);
+											if(pt !=-1)
+											{
+												sg=sg.replace(pt,pt+2,"}");
+												//System.out.println("Ravi");
+											}
+											sg=sg.replace(po,po+"\\backslashprotect\\backslashqtoa\\{".length(),"\\protect\\qtoa{");
+										}
+										st=sg.toString();
+										//System.out.println("stttttttttttttttttttttt  :::  "+st);
+										bodyContents.append(st);
+								//bodyContents.append(xmlObj.abrKwd);//old
+								//System.out.println(XT.sectionNo+"xmlObj.abrKwd  -- >  "+coutsection);
+								//System.in.read();
+							}
+					}
+					
+
+					if(xmlObj.fntStyle.equals("Y"))
+					{
+						if(xmlObj.footnote.toString().length()>0)
+						{
+							System.out.println("FootNoteTagValues"+xmlObj.footnote.toString());
+							bodyContents.append("\r\n\r\n\\begin{notes}"+xmlObj.footnote.toString()+"\r\n\\end{notes}\r\n");
+							xmlObj.footnote=new StringBuffer();
+						}
+					}					
+					//end mark
+				}
+/*				else if (tag.equals("<CE:SALUTATION>"))
+				{
+					bodyContents.append(xmlObj.extractData("</CE:SALUTATION>", true));
+				}*/
+				else if (tag.startsWith("<CE:CONFLICT-OF-INTEREST>") || tag.startsWith("<CE:CONFLICT-OF-INTEREST "))
+				{
+//					String conflictOfInterest = "";
+					System.out.println("INSIDE :: "+tag);
+					while (!tag.equals("</CE:CONFLICT-OF-INTEREST>"))
+					{
+						char ch1= (char)xmlObj.fin.read();
+						if (ch1=='<')
+						{
+							tag= xmlObj.getTag().toUpperCase();
+							System.out.println("TAG :: "+tag);
+							if (tag.equals("<CE:SECTION-TITLE>")||tag.startsWith("<CE:SECTION-TITLE "))
+							{
+//								System.out.println("INSIDE <CE:SECTION-TITLE> in <CE:DATA-AVAILABILITY>");
+								String dataSec = xmlObj.extractData("</CE:SECTION-TITLE>", true);
+								HeadGroup.conflictOfInterest = "\r\n\n\\section{"+dataSec+"}\n\\addbookmark{}{"+dataSec+"}\n";
+							}
+							else if (tag.equals("<CE:PARA>")||tag.startsWith("<CE:PARA "))
+							{
+//								System.out.println("INSIDE <CE:PARA> in <CE:DATA-AVAILABILITY>");
+								String datapara = "\n"+xmlObj.extractData("</CE:PARA>", true);
+								HeadGroup.conflictOfInterest+= datapara+"\n";
+							}
+						}
+//						System.out.println("TEXT <CE:DATA-AVAILABILITY> :: "+dataAvailability);	
+					}
+					System.out.println("FINAL <CE:CONFLICT-OF-INTEREST> :: "+HeadGroup.conflictOfInterest);
+/*					if(conflictOfInterest.length()>0){
+						bodyContents.append(conflictOfInterest);
+					}
+*/				}
+				else if (tag.startsWith("<CE:ACKNOWLEDGMENT"))
+				{
+					isackpresent=true;
+					if((xmlObj.jid.equalsIgnoreCase("JJBE"))||(xmlObj.jid.equalsIgnoreCase("CIRCIR"))||(xmlObj.jid.equalsIgnoreCase("ANTAGE"))||(xmlObj.jid.equalsIgnoreCase("GAIPOS"))||(xmlObj.jid.equalsIgnoreCase("YSEIZ"))||(xmlObj.jid.equalsIgnoreCase("IHE")))
+					{
+						isackcheck=false;
+					}
+					else
+					{
+						isackcheck=true;
+					}
+					if(HeadGroup.contributorRole.length()>0 && bodyContents.toString().toLowerCase().indexOf("credit authorship contribution statement}")==-1 && (!xmlObj.isTextBox)){
+//					if(HeadGroup.contributorRole.length()>0){
+						bodyContents.append("\n\n"+HeadGroup.contributorRole+"\n\n");
+					}
+					if(HeadGroup.dataAvailability.length()>0){
+						bodyContents.append("\n\n"+HeadGroup.dataAvailability+"\n\n");
+					}
+					if(HeadGroup.conflictOfInterest.length()>0){
+						bodyContents.append(HeadGroup.conflictOfInterest);
+					}
+
+					bodyContents.append(processAcknowledgment());
+					//System.out.println("bodyContents : "+bodyContents);
+					//System.in.read();
+					//*********************
+					//[19/03/2007]
+					//
+					//if((xmlObj.jid.equalsIgnoreCase("TRSTMH"))||(xmlObj.jid.equalsIgnoreCase("ANTAGE")))
+					if((xmlObj.jid.equalsIgnoreCase("TRSTMH")||xmlObj.jid.equals("INHE")))
+						{
+							//temp+=sbr.toString();
+							bodyContents.append(sbr.toString());
+							//System.out.println("sbr==> "+sbr);
+						}
+						if((xmlObj.jid.equalsIgnoreCase("DRUPOL")))
+						{
+							//temp+=sbr.toString();
+							bodyContents.append(sbr.toString());
+							//System.out.println("sbr==> "+sbr);
+						}
+						if(modelDSec)
+						{
+							//temp+=sbr.toString();
+							bodyContents.append(sbr.toString());
+							System.out.println("sbr==> "+sbr);
+						}
+						/*if((xmlObj.jid.equalsIgnoreCase("IHE")))//21-06-2012
+						{
+							//temp+=sbr.toString();
+							bodyContents.append(sbr.toString());
+							//System.out.println("bodyContents ==> "+bodyContents);
+						}*/
+					//********************
+					
+				}
+				else if (tag.equals("<CE:APPENDICES>"))
+				{
+					String tempTag=tag;
+					String appView="";
+					boolean isAntiExtra=false;
+					boolean isCompact=false;
+					//System.out.println("222222222222222222222222");
+						long filePointer= fin.getFilePointer();
+						while((!tempTag.equals("</CE:APPENDICES>")))
+						{
+							ch= (char)fin.read();
+							if (ch=='<')
+							{
+								tempTag= xmlObj.getTag().toUpperCase();
+								//System.out.println("tempTag "+tempTag);
+								if (tempTag.startsWith("<CE:SECTION "))
+								{
+									//
+									appView=xmlObj.getAttributeValue(tempTag, "VIEW");
+									if(appView.equalsIgnoreCase("COMPACT-STANDARD"))
+									{
+										isAntiExtra=true;
+										isCompact=true;
+										break;
+									}
+									
+									//break;
+								}
+							}
+						}
+						fin.seek(filePointer);
+						//System.out.println("isAntiExtra-->>"+isAntiExtra);
+					if(xmlObj.jid.equals("SECLAN") || xmlObj.jid.equals("CHIABU"))
+					{//18-01-2005
+						BodyGroup.append_seclan+="\r\n\\begin{appendix}"+processSections("</CE:APPENDICES>")+"\r\n\\end{appendix}";
+					}
+					else{
+						if(isAntiExtra && isCompact)
+						{
+							isAntiExtra=false;
+							bodyContents.append("\r\n\\begin{appendix}");
+							bodyContents.append(processSections("</CE:APPENDICES>"));
+							//System.out.println("9999999999999999"+processSections("</CE:APPENDICES>"));
+							bodyContents.append("\r\n\\end{appendix}");
+							if(bodyContents.indexOf("\r\n\\begin{appendix}",0)!=-1)//07-08-2010
+								{
+									String tem_aid=xmlObj.aid;
+									if(tem_aid.indexOf(".",0)!=-1)
+									{
+										tem_aid=tem_aid.substring(0,tem_aid.indexOf(".",0));
+									}
+									ReadForEextra red= new ReadForEextra(xt.jid,tem_aid,xt.stage);
+									String mmcCount=red.GetEComponentInffo();
+									//System.out.println("mmcCount---> "+mmcCount);
+									if(Integer.parseInt(mmcCount)>0)
+									{
+										int s=bodyContents.indexOf("\r\n\\begin{appendix}",0);
+										bodyContents.insert(s+"\r\n\\begin{appendix}".length(),"\r\n"+hyperlink_id.trim());
+										hyperlink_id="";
+									}
+								}
+						}
+						else
+						{
+							bodyContents.append("\r\n\\begin{appendix}");
+							bodyContents.append(processSections("</CE:APPENDICES>"));
+							//System.out.println("9999999999999999"+processSections("</CE:APPENDICES>"));
+							bodyContents.append("\r\n\\end{appendix}");
+							if(bodyContents.indexOf("\r\n\\begin{appendix}",0)!=-1)//07-08-2010
+								{
+									String tem_aid=xmlObj.aid;
+									if(tem_aid.indexOf(".",0)!=-1)
+									{
+										tem_aid=tem_aid.substring(0,tem_aid.indexOf(".",0));
+									}
+									ReadForEextra red= new ReadForEextra(xt.jid,tem_aid,xt.stage);
+									String mmcCount=red.GetEComponentInffo();
+									//System.out.println("mmcCount---> "+mmcCount);
+									if(Integer.parseInt(mmcCount)>0)
+									{
+										int s=bodyContents.indexOf("\r\n\\begin{appendix}",0);
+										bodyContents.insert(s+"\r\n\\begin{appendix}".length(),"\r\n"+hyperlink_id.trim());
+										hyperlink_id="";
+									}
+								}
+						}
+					}
+					/*if((xmlObj.jid.equalsIgnoreCase("IHE")))//21-06-2012
+						{
+							//temp+=sbr.toString();
+							bodyContents.append(sbr.toString());
+							//System.out.println("bodyContents ==> "+bodyContents);
+						}*/
+					//System.out.println("bodyContents==> "+bodyContents);
+				}
+				else if (tag.startsWith("<CE:APPENDICES "))
+				{
+				
+					String appView=xmlObj.getAttributeValue(tag, "VIEW");
+					//System.out.println("111111111111111111111111"+appView);
+
+
+					if(xmlObj.jid.equals("SECLAN") || xmlObj.jid.equals("CHIABU"))
+					{//18-01-2005
+						if(appView.equalsIgnoreCase("extended"))
+							BodyGroup.append_seclan+="\r\n\\begin{extra}\r\n\\begin{appendix}"+processSections("</CE:APPENDICES>")+"\r\n\\end{appendix}\r\n\\end{extra}";
+						else if(appView.equalsIgnoreCase("compact-standard"))
+							BodyGroup.append_seclan+="\r\n\\begin{antiextra}\r\n\\begin{appendix}"+processSections("</CE:APPENDICES>")+"\r\n\\end{appendix}\r\n\\end{antiextra}";
+						else
+							BodyGroup.append_seclan+="\r\n\\begin{appendix}"+processSections("</CE:APPENDICES>")+"\r\n\\end{appendix}";
+					}
+					else{
+						if(appView.equalsIgnoreCase("extended"))
+							bodyContents.append("\r\n\\begin{extra}");
+						else if(appView.equalsIgnoreCase("compact-standard"))
+							bodyContents.append("\r\n\\begin{antiextra}");
+
+					bodyContents.append("\r\n\\begin{appendix}");
+					bodyContents.append(processSections("</CE:APPENDICES>"));
+					bodyContents.append("\r\n\\end{appendix}");
+					if(appView.equalsIgnoreCase("extended"))
+							bodyContents.append("\r\n\\end{extra}");
+					else if(appView.equalsIgnoreCase("compact-standard"))
+							bodyContents.append("\r\n\\end{antiextra}");
+					}
+
+					/*if((xmlObj.jid.equalsIgnoreCase("IHE")))//21-06-2012
+						{
+							//temp+=sbr.toString();
+							bodyContents.append(sbr.toString());
+							//System.out.println("bodyContents ==> "+bodyContents);
+						}*/
+					
+				}
+				else
+				{
+					if((xmlObj.jid.equalsIgnoreCase("IHE")))//21-06-2012
+						{
+							//temp+=sbr.toString();
+							bodyContents.append(sbr.toString());
+							//System.out.println("bodyContents ==> "+bodyContents);
+						}
+					if(isackcheck==false)
+					{
+						if((xmlObj.jid.equalsIgnoreCase("DRUPOL")))
+						{
+							//temp+=sbr.toString();
+							bodyContents.append(sbr.toString());
+							//System.out.println("sbr==> "+sbr);
+						}
+						if(modelDSec)
+						{
+							//temp+=sbr.toString();
+							bodyContents.append(sbr.toString());
+							System.out.println("sbr added in case of no ACKNOWLEDGEMENTS:==>"+sbr);
+						}
+					}
+
+				}
+			}
+		}
+		//Added by Avinandan till end
+		//mark
+		if(xmlObj.jid.equals("MEMSCI"))
+		{
+			if(tempNomen.length()>0)
+			{
+				bodyContents.append("\r\n"+tempNomen);
+			}
+		}
+		//end mark
+		if(xmlObj.jid.equals("JFD") && con_edu.length() > 0)
+		{
+			bodyContents.append("\r\n" + con_edu + "\r\n");
+			con_edu = "";
+		}
+		if(!isackpresent && HeadGroup.contributorRole.length()>0 && bodyContents.toString().toLowerCase().indexOf("credit authorship contribution statement}")==-1 && (!xmlObj.isTextBox)){
+//		if(!isackpresent && HeadGroup.contributorRole.length()>0){
+			bodyContents.append("\n\n"+HeadGroup.contributorRole+"\n\n");
+		}
+		if(!isackpresent && HeadGroup.dataAvailability.length()>0){
+			bodyContents.append("\n\n"+HeadGroup.dataAvailability+"\n\n");
+		}
+		if(!isackpresent && HeadGroup.conflictOfInterest.length()>0){
+			bodyContents.append("\n\n"+HeadGroup.conflictOfInterest+"\n\n");
+		}
+		return bodyContents.toString();
+	}
+
+	public String processAcknowledgment()throws java.io.IOException
+	{
+//		boolean firstP              = true; //Condition replaced by paracount on 10-10-2015
+		int paracount = 0;
+		XT modXt=new XT();
+		boolean modelDSec=modXt.chekJidAid(xmlObj.jid, xmlObj.aid);
+		String tag                  = "";
+		String ackTitle             = "";
+		String ackContents		    = "";
+		while (!tag.equals("</CE:ACKNOWLEDGMENT>"))
+		{
+			char ch= (char)fin.read();
+			if (ch=='<')
+			{
+				tag= xmlObj.getTag().toUpperCase();
+				if (tag.equals("<CE:SECTION-TITLE>")||tag.startsWith("<CE:SECTION-TITLE "))
+				{
+					ackTitle= xmlObj.extractData("</CE:SECTION-TITLE>", true);
+					if(XMLObjects.upperCaseSecJid.contains((Object)xmlObj.jid))
+						ackTitle=ackTitle.toUpperCase();
+
+					//BodyGroup.tableContents+="\r\n\\item{\\hskip18pt}"+ackTitle+"\\dotfill\\quad 00";//Updated on 11-05-2015 for TOC auto pagerange
+					BodyGroup.tableContents+="\r\n\\item{\\hskip18pt}"+ackTitle+"\\dotfill\\planref{PL"+planref+"}";
+				}
+				else if (tag.equals("<CE:PARA>") || tag.startsWith("<CE:PARA")) //04-01-2005
+				{
+					paracount++;
+					String paraView=xmlObj.getAttributeValue(tag, "VIEW");
+					if(paraView.equals("EXTENDED"))
+						ackContents+="\r\n\\begin{extra}";
+					else if(paraView.equals("COMPACT-STANDARD"))
+						ackContents+="\r\n\\begin{antiextra}";
+					//if (firstP== true)//Condition replaced by paracount on 10-10-2015
+					if (paracount == 1)
+					{
+						ackContents+= xmlObj.extractData("</CE:PARA>", true);
+						//firstP=false;//Commented on 10-10-2015
+						//System.out.println("ch: "+ackContents);
+					}
+					else
+					{
+						ackContents+= "\r\n\n"+xmlObj.extractData("</CE:PARA>", true);
+						
+					}
+					
+					if(paraView.equals("EXTENDED"))
+						ackContents+="\r\n\\end{extra}";
+					else if(paraView.equals("COMPACT-STANDARD"))
+						ackContents+="\r\n\\end{antiextra}";
+				}
+				
+			}
+			
+		}
+		String temp="";
+
+		if(XMLObjects.upperCaseSecJid.contains((Object)xmlObj.jid))
+		{
+				//*****************[New Requirement]***************
+				/**
+				 *Added By : Ravi 
+				 *Date : 21/05/2007
+				 *Change Point : Deleting Query Tag.
+				 **/
+				/*// String addbookmark=xmlObj.bkmList.get((xmlObj.bkmCount)).toString();
+					StringBuffer q1= new StringBuffer(ackContents);
+					//System.out.println("q1==> "+q1);
+					int in= 0;
+					int ot=0;
+					while(in != -1)
+					{
+						in= q1.indexOf("\\(\\backslash\\)protect\\(\\backslash\\)qtoa\\{",in);
+						
+						if(in != -1)
+						{
+							ot=q1.indexOf("}",in+1)	;
+							if(ot != -1)
+							{
+								q1.delete(in,ot+1);
+							}
+							//ackContents=q1.toString();
+						}
+		           }
+				   ackContents=q1.toString();
+					*/
+				//*************************************************
+
+			
+			if(xmlObj.pit.equalsIgnoreCase("REV")){
+			temp= "\r\n\r\n\\begin{acknowledgements}{"+ackTitle+"}\\label{PL"+planref+"}"+
+					 "\r\n\\addbookmark"+((String)xmlObj.bkmList.get((xmlObj.bkmCount++))).toUpperCase()+
+					 "\r\n"+ackContents+
+					 "\r\n\\end{acknowledgements}";
+			}else{
+				temp= "\r\n\r\n\\begin{acknowledgements}{"+ackTitle+"}"+
+						 "\r\n\\addbookmark"+((String)xmlObj.bkmList.get((xmlObj.bkmCount++))).toUpperCase()+
+						 "\r\n"+ackContents+
+						 "\r\n\\end{acknowledgements}";
+			}
+		}
+		else
+		{
+			/*
+			* Added By Arvind [30_03_2007]
+			* Change Request By: Vivek
+			* Change Point : As per the new stylesheet of TRSTMH, we need toset "authors' contributions",  
+				    		 any "disclaimers" present, and "acknowledgement" sections also in 
+						     the same style as Funding, Conflict of interest, Ethical approval..
+    		*/	
+
+			//System.out.println(xmlObj.bkmList);
+
+			//if((xmlObj.jid.equalsIgnoreCase("TRSTMH") )||(xmlObj.jid.equalsIgnoreCase("ANTAGE") ))
+			if((xmlObj.jid.equalsIgnoreCase("TRSTMH") ||xmlObj.jid.equals("INHE")))
+			 {
+				//*****************[New Requirement]***************
+				/**
+				 *Added By : Ravi 
+				 *Date : 21/05/2007
+				 *Change Point : Deleting Query Tag.
+				 **/
+				/*// String addbookmark=xmlObj.bkmList.get((xmlObj.bkmCount)).toString();
+					StringBuffer q1= new StringBuffer(ackContents);
+					//System.out.println("q1==> "+q1);
+					int in= 0;
+					int ot=0;
+					while(in != -1)
+				    {
+							in= q1.indexOf("\\(\\backslash\\)protect\\(\\backslash\\)qtoa\\{",0);
+							
+							if(in != -1)
+							{
+								ot=q1.indexOf("}",in+1)	;
+								if(ot != -1)
+								{
+									q1.delete(in,ot+1);
+								}
+								//ackContents=q1.toString();
+							}
+					}
+					ackContents=q1.toString();
+				*/
+			//*************************************************
+
+			 	temp="\r\n";
+				/**
+					Date: 31/08/2009
+					Requirement: As per Client requirement, splsection should be used with TRSTMH journal in Gulliver model 
+					Requested By : Vivek [TPMS]
+				*/
+				/*if(xmlObj.jid.equalsIgnoreCase("TRSTMH")&&xmlObj.check_GulliverJid==true)
+				 {
+					temp+= "\\section{"+ackTitle+"}"+
+					 "\r\n\\addbookmark"+((String)xmlObj.bkmList.get((xmlObj.bkmCount++))).toLowerCase()+
+						 "\r\n"+ackContents+"\r\n";//+
+					//	 "\r\n\\end{acknowledgements}\r\n";
+				 }
+				else*/
+				 {
+				 	temp+= "\\splsection{"+ackTitle+"}"+
+						 "\r\n\\addbookmark"+((String)xmlObj.bkmList.get((xmlObj.bkmCount++))).toLowerCase()+
+						 "\r\n"+ackContents+"\r\n";//+
+					//	 "\r\n\\end{acknowledgements}\r\n";
+				 }
+			 }
+			else if(modelDSec)
+			 {
+				//*****************[New Requirement]***************
+				/**
+				 *Added By : Ravi 
+				 *Date : 21/05/2007
+				 *Change Point : Deleting Query Tag.
+				 **/
+				/*// String addbookmark=xmlObj.bkmList.get((xmlObj.bkmCount)).toString();
+					StringBuffer q1= new StringBuffer(ackContents);
+					//System.out.println("q1==> "+q1);
+					int in= 0;
+					int ot=0;
+					while(in != -1)
+				    {
+							in= q1.indexOf("\\(\\backslash\\)protect\\(\\backslash\\)qtoa\\{",0);
+							
+							if(in != -1)
+							{
+								ot=q1.indexOf("}",in+1)	;
+								if(ot != -1)
+								{
+									q1.delete(in,ot+1);
+								}
+								//ackContents=q1.toString();
+							}
+					}
+					ackContents=q1.toString();
+				*/
+			//*************************************************
+
+			 	temp="\r\n";
+				/**
+					Date: 31/08/2009
+					Requirement: As per Client requirement, splsection should be used with TRSTMH journal in Gulliver model 
+					Requested By : Vivek [TPMS]
+				*/
+				/*if(xmlObj.jid.equalsIgnoreCase("TRSTMH")&&xmlObj.check_GulliverJid==true)
+				 {
+					temp+= "\\section{"+ackTitle+"}"+
+					 "\r\n\\addbookmark"+((String)xmlObj.bkmList.get((xmlObj.bkmCount++))).toLowerCase()+
+						 "\r\n"+ackContents+"\r\n";//+
+					//	 "\r\n\\end{acknowledgements}\r\n";
+				 }
+				else*/
+				 {
+						if(xmlObj.pit.equalsIgnoreCase("REV")){
+							 temp= "\r\n\r\n\\begin{acknowledgements}{"+ackTitle+"}\\label{PL"+planref+"}"+
+									 "\r\n\\addbookmark"+xmlObj.bkmList.get((xmlObj.bkmCount++))+
+									 "\r\n"+ackContents+
+									 "\r\n\\end{acknowledgements}\n";
+						}else{
+							 temp= "\r\n\r\n\\begin{acknowledgements}{"+ackTitle+"}"+
+									 "\r\n\\addbookmark"+xmlObj.bkmList.get((xmlObj.bkmCount++))+
+									 "\r\n"+ackContents+
+									 "\r\n\\end{acknowledgements}\n";
+						}
+					//	 "\r\n\\end{acknowledgements}\r\n";
+				 }
+			 }
+			 else
+			 {
+				//*****************[New Requirement]***************
+				/**
+				 *Added By : Ravi 
+				 *Date : 21/05/2007
+				 *Change Point : Deleting Query Tag.
+				 **/
+				// String addbookmark=xmlObj.bkmList.get((xmlObj.bkmCount)).toString();
+				/*	StringBuffer q1= new StringBuffer(ackContents);
+					System.out.println("q1==> "+q1);
+					int in= 0;
+					int ot=0;
+					while(in != -1)
+				    {
+						in= q1.indexOf("\\(\\backslash\\)protect\\(\\backslash\\)qtoa\\{",0);
+						
+						if(in != -1)
+						{
+							ot=q1.indexOf("}",in+1)	;
+							if(ot != -1)
+							{
+								q1.delete(in,ot+1);
+							}
+							//ackContents=q1.toString();
+						}
+			        }
+					ackContents=q1.toString();
+					*/
+	    	//*************************************************
+				 
+					if(xmlObj.pit.equalsIgnoreCase("REV")){
+						temp= "\r\n\r\n\\begin{acknowledgements}{"+ackTitle+"}\\label{PL"+planref+"}"+
+								 "\r\n\\addbookmark"+xmlObj.bkmList.get((xmlObj.bkmCount++))+
+								 "\r\n"+ackContents+
+								 "\r\n\\end{acknowledgements}\n";
+					}else{
+						temp= "\r\n\r\n\\begin{acknowledgements}{"+ackTitle+"}"+
+								 "\r\n\\addbookmark"+xmlObj.bkmList.get((xmlObj.bkmCount++))+
+								 "\r\n"+ackContents+
+								 "\r\n\\end{acknowledgements}\n";
+					}
+				//System.out.println("temp==> "+temp);
+
+			}
+		}
+
+//System.in.read();
+		planref++;
+		return temp.toString();
+	}
+
+	public String processSections(String Tag)throws java.io.IOException
+	{
+		//System.out.println("Tag-----> "+Tag);
+		String SevVal="";
+		String Filgval="";
+		boolean check_extended      =false;//06-08-2010
+		boolean firstP              = true;
+		boolean head1				= false;
+		StringBuffer sectionContents= new StringBuffer();
+		StringBuffer bodyContents   = new StringBuffer();
+		String secNo                ="";
+		String secTitle             = "";
+		String secTitleRole         = "";//Added on 11-07-2017 for new DTD
+		int sectionCount            = 0;
+		int AENJ_sectionCount            = 0;//24-09-2010
+		String tag                  = "";
+		String secId                = "";
+		String viewSec="";
+		Hashtable hashView = new Hashtable();
+		Hashtable compactView = new Hashtable();
+		Hashtable sectionView =new Hashtable();
+		String move="";
+		String sttsg="";
+		String Tsec="";
+		String TempDiffsecTitle="";//24/02/2010
+		boolean isViewRole=false;
+		boolean iscompact=false;//30-09-2010
+		boolean isextended=false;//30-09-2010
+		boolean isSmallFont=false;
+		XT modXt=new XT();
+		boolean modelDSec=modXt.chekJidAid(xmlObj.jid, xmlObj.aid);
+		String ravi_tag="";
+		issecID=false;
+		//boolean checkMMC=true;
+	    iam++;
+		boolean secView=false;
+		boolean checkCompact=false;//10-07-2012
+		boolean isFuentes=false;
+		int mark=0;
+		mark=sectionCount;//20/06/2009
+		while (!tag.equals(Tag))
+		{
+			boolean checkMMC=false;//23-06-2010
+			char ch= (char)fin.read();
+			if (ch=='<')
+			{
+				tag= xmlObj.getTag().toUpperCase();
+				//System.out.println("Tag-----> "+tag);
+				if (tag.equals("<CE:SECTION>") || tag.startsWith("<CE:SECTION "))
+				{
+					if (tag.indexOf("ID=")>0)
+					{
+						if(tag.indexOf("ROLE=")>0)
+						{
+							
+
+							int in=tag.indexOf("ID=\"");
+							secId= tag.substring(tag.indexOf("ID=\"")+4, tag.indexOf("\"",in+4));
+						}
+						else
+						{
+							//secId= tag.substring(tag.indexOf("ID=\"")+4, tag.indexOf(">")-1);
+							int in=tag.indexOf("ID=\"");
+							secId= tag.substring(tag.indexOf("ID=\"")+4, tag.indexOf("\"",in+4));
+						}
+						//System.out.println("ID : "+secId);
+					}
+					/*if (tag.indexOf("VIEW=")>0)
+					{
+						viewSec= tag.substring(tag.indexOf("VIEW=\"")+4, tag.indexOf("\"",tag.indexOf("VIEW=\"")+1));
+					}*/
+					//added by avinandan
+					///if(tag.indexOf("VIEW=\"EXTENDED\"")>0)// && checkMMC==true
+					///{
+						/*long fp=fin.getFilePointer();///E-EXTRA COMPONENT///
+						String statTag=tag;
+						checkMMC=false;*/
+						
+
+						///while(!tag.equals("</CE:SECTION>"))
+						///{
+							///ch= (char)fin.read();
+							///if (ch=='<')
+							///{
+								///tag= xmlObj.getTag().toUpperCase();
+								/*if(tag.equals("<CE:E-COMPONENT>") )///E-EXTRA COMPONENT///
+								{
+									checkMMC=true;
+								}
+								else if(tag.equals("</CE:SECTION>") && checkMMC==false)///E-EXTRA COMPONENT///
+								{
+									fp=fp-statTag.length();
+									fin.seek(fp);									
+								}*/
+								
+							///}
+						///}//end of while
+						///continue;
+					///}//end of if
+					/*if(tag.indexOf("VIEW=\"EXTENDED\"")>0 && checkMMC==false)
+						checkMMC=true;*/
+					//end mark
+					secNo    = "";
+					secTitle = "";
+					secTitleRole = "";
+					firstP   = true;
+					
+					sectionCount++;
+					if(sectionCount==1 && AENJ_sectionCount==0)//24-09-2010
+					{
+						AENJ_sectionCount=sectionCount;
+						//System.out.println("------------------> "+AENJ_sectionCount);
+					}
+					//System.out.println("sectionCount "+sectionCount);
+					//mark=sectionCount;//20/06/2009
+
+					if (tag.indexOf("ROLE=")>0)
+					{
+						String temp= tag.substring(tag.indexOf("ROLE=\"")+6, tag.indexOf(">")-1);
+						//System.out.println("ROLE=\""+temp+"\"");
+						//System.in.read();
+						/*if(temp.startsWith("MATERIALS-METHODS"))
+						{
+							sectionContents.append("\r\n\r\n\\begin{materialsandmethods}");
+							hashView.put(""+sectionCount,sectionCount+"");
+
+						}*/
+			///////////////////////////////EXTRANET UPDATE//////////////////////////////////////////////////
+			///		
+					sectionContents.append("\r\n\r\n\\begin<SmallFont>"); //15-01-2005
+					hashView.put(""+sectionCount,sectionCount+"");
+			///		
+			/////////////////////////////////////////////////////////////////////////////////////////////////		
+
+
+						
+					}
+					else if (tag.indexOf("VIEW=\"COMPACT-STANDARD\"")>0)
+					{
+						checkCompact=true;//10-07-2012
+						isViewRole=true;
+						//iscompact=true;//30-09-2010
+						//ravi_tag=tag;
+						long fp1=fin.getFilePointer();
+						String statTag1=tag;
+						//System.out.println("1 statTag "+statTag1);
+						while((!statTag1.equals("</CE:SECTION>")))
+						{
+							//System.out.println("2 statTag "+statTag1);
+							//System.in.read();
+							ch= (char)fin.read();						
+								
+							if (ch=='<')
+							{
+								statTag1= xmlObj.getTag().toUpperCase();
+								if(statTag1.startsWith("<CE:SECTION ") || statTag1.equals("<CE:SECTION>"))
+								{
+									if (statTag1.indexOf("VIEW=\"EXTENDED\"")>0)
+									{
+										isextended=true;
+										break;
+									}
+								}
+							}
+						}
+						fin.seek(fp1);
+						//System.out.println("isextended=========>>"+isextended);
+						if(isextended)
+						{
+							System.out.println("\n\nVIEW=\"COMPACT-STANDARD\" coming in VIEW=\"EXTENDED\"");
+							System.out.println("Section--->> "+tag);
+							System.out.println("Section--->> "+statTag1);	
+							System.out.println("WRONG XML. Please revert to Copy-Editing\n\n");
+							System.exit(0);
+							isextended=false;
+							ravi_tag=tag;
+						}
+						
+						//System.out.println("VIEW----->COMPACT-STANDARD");
+						
+						sectionContents.append("\r\n\r\n\\begin{antiextra}"); //15-01-2005
+						//System.out.println("I am here.........."+sectionCount);
+						compactView.put(""+sectionCount,sectionCount+"");
+						//System.out.println("I am here.........."+compactView);
+					}
+					else
+					{
+						sectionContents.append("\r\n");
+					}
+//System.out.println("sectionContents ==> "+sectionContents);
+
+					
+					if(tag.startsWith("<CE:SECTION ") && tag.indexOf("VIEW=\"EXTENDED\"")>0 )
+					{
+						
+						//isextended=true;//30-09-2010
+						
+						//****************************************************
+
+						long fp1=fin.getFilePointer();
+						String statTag1=tag;
+						//System.out.println("1 statTag "+statTag1);
+						while((!statTag1.equals("</CE:SECTION>")))
+						{
+							//System.out.println("2 statTag "+statTag1);
+							//System.in.read();
+							ch= (char)fin.read();						
+								
+							if (ch=='<')
+							{
+								statTag1= xmlObj.getTag().toUpperCase();
+								if(statTag1.startsWith("<CE:SECTION ") || statTag1.equals("<CE:SECTION>"))
+								{
+									if (statTag1.indexOf("VIEW=\"COMPACT-STANDARD\"")>0)
+									{
+										iscompact=true;
+										ravi_tag=statTag1;
+										break;
+									}
+								}
+							}
+						}
+						fin.seek(fp1);
+						if(iscompact)
+						{
+							System.out.println("\n\nVIEW=\"EXTENDED\" coming in VIEW=\"COMPACT-STANDARD\"");
+							System.out.println("Section--->> "+tag);
+							System.out.println("Section--->> "+ravi_tag);	
+							System.out.println("WRONG XML. Please revert to Copy-Editing\n\n");
+							System.exit(0);
+							iscompact=false;
+							
+						}
+						//*******************************************************
+						check_extended=true;//07-08-2010
+						isViewRole=true;
+						long fp=fin.getFilePointer();///E-EXTRA COMPONENT vs MMC///
+						//sectionView.put(""+sectionCount,sectionCount+"");
+						String statTag=tag;
+						checkMMC=false;						
+						String tagContents="";
+						//boolean cnt=false;
+						int cnt=0;
+						boolean level=false;
+						
+			
+
+						while((!statTag.equals("</CE:SECTION>")))
+						{
+							//System.out.println("statTag "+statTag);
+							//System.in.read();
+							ch= (char)fin.read();						
+								
+							if (ch=='<')
+							{
+								statTag= xmlObj.getTag().toUpperCase();
+								if(statTag.startsWith("<CE:SECTION ") || statTag.equals("<CE:SECTION>"))
+								{
+									level=true;
+									cnt++;
+									//System.out.println("secId "+secId);
+								}
+								if(statTag.equals("</CE:SECTION>"))
+								{
+									if(level==true)
+									{
+										cnt--;
+										level=false;
+										statTag="";
+									}
+								}
+								tagContents+=statTag;						
+
+							}
+							else
+							{
+								tagContents+=""+ch;						
+							}
+						}//end of while	
+						//System.out.println("<<1>>"+tagContents);
+						/*if(iscompact)
+						{
+							System.out.println("\n\nVIEW=\"EXTENDED\" coming in VIEW=\"COMPACT-STANDARD\"");
+							System.out.println("Section--->> "+tag);
+							System.out.println("Section--->> "+ravi_tag);	
+							System.out.println("WRONG XML. Please revert to Copy-Editing\n\n");
+							System.exit(0);
+							iscompact=false;
+							
+						}
+						*/
+						if((tagContents.indexOf("<CE:E-COMPONENT ") != -1) ||(tagContents.indexOf("<CE:E-COMPONENT ROLE=\"EDITORIAL-VIDEO\">") != -1)||(tagContents.indexOf("<CE:DISPLAY><CE:FIGURE><CE:LINK LOCATOR=\"MMC") != -1))
+						{
+							checkMMC=true;
+						}
+						else
+						{
+							String dispMMC="";
+							while (tagContents.indexOf("<CE:DISPLAY><CE:FIGURE><CE:LABEL>") != -1)
+							{
+								///System.out.println("\n\n--->"+tagContents);
+
+								int spos=0;
+								int epos=0;
+								spos=tagContents.indexOf("<CE:DISPLAY><CE:FIGURE><CE:LABEL>",epos);
+								if(spos!=-1)
+								{
+									epos=tagContents.indexOf("</CE:DISPLAY>",spos);
+									if(epos!=-1)
+									{
+										dispMMC = tagContents.substring(spos, epos);
+										tagContents = tagContents.substring(spos,epos) + tagContents.substring(epos + "</CE:DISPLAY>".length());
+										//System.out.println("dispMMC "+dispMMC);
+										//	System.in.read();
+									}
+								}
+								//dispMMC = tagContents.substring(tagContents.indexOf("<CE:DISPLAY><CE:FIGURE><CE:LABEL>"), tagContents.indexOf("</CE:DISPLAY>"));
+								//tagContents = tagContents.substring(tagContents.indexOf("<CE:DISPLAY><CE:FIGURE><CE:LABEL>"), tagContents.indexOf("</CE:DISPLAY>")) + tagContents.substring(tagContents.indexOf("</CE:DISPLAY>") + "</CE:DISPLAY>".length());
+								///System.out.println("<<2>>"+tagContents);
+								//System.out.println("<<3>>"+dispMMC);
+								if((dispMMC.indexOf("<CE:LINK LOCATOR=\"FX") != -1 || dispMMC.indexOf("<CE:LINK LOCATOR=\"MMC") != -1) && (dispMMC.indexOf("<CE:CAPTION>") != -1 || dispMMC.indexOf("<CE:CAPTION ") != -1||dispMMC.indexOf("<CE:LABEL>") != -1))
+								{
+									checkMMC=false;
+									break;
+								}
+
+							}
+							while (tagContents.indexOf("<CE:DISPLAY><CE:E-COMPONENT><CE:LABEL>") != -1)
+							{
+								///System.out.println("\n\n--->"+tagContents);
+
+								int spos=0;
+								int epos=0;
+								spos=tagContents.indexOf("<CE:DISPLAY><CE:E-COMPONENT><CE:LABEL>",epos);
+								if(spos!=-1)
+								{
+									epos=tagContents.indexOf("</CE:DISPLAY>",spos);
+									if(epos!=-1)
+									{
+										dispMMC = tagContents.substring(spos, epos);
+										tagContents = tagContents.substring(spos,epos) + tagContents.substring(epos + "</CE:DISPLAY>".length());
+										//System.out.println("dispMMC "+dispMMC);
+										//	System.in.read();
+									}
+								}
+								//dispMMC = tagContents.substring(tagContents.indexOf("<CE:DISPLAY><CE:FIGURE><CE:LABEL>"), tagContents.indexOf("</CE:DISPLAY>"));
+								//tagContents = tagContents.substring(tagContents.indexOf("<CE:DISPLAY><CE:FIGURE><CE:LABEL>"), tagContents.indexOf("</CE:DISPLAY>")) + tagContents.substring(tagContents.indexOf("</CE:DISPLAY>") + "</CE:DISPLAY>".length());
+								///System.out.println("<<2>>"+tagContents);
+								//System.out.println("<<3>>"+dispMMC);
+								if((dispMMC.indexOf("<CE:LINK LOCATOR=\"FX") != -1 || dispMMC.indexOf("<CE:LINK LOCATOR=\"MMC") != -1) && (dispMMC.indexOf("<CE:CAPTION>") != -1 || dispMMC.indexOf("<CE:CAPTION ") != -1||dispMMC.indexOf("<CE:LABEL>") != -1))
+								{
+									checkMMC=false;
+									break;
+								}
+
+							}
+						}
+						//System.out.println("qqqqqqqqqqqqqqcheckMMC-->"+checkMMC);
+
+						if(checkMMC==true)
+						{
+							secView=true;
+							//System.out.println("qqqqqqqqqqqqqMark-->"+mark);
+							sectionContents.append("\r\n\\begin{extra}");
+							fin.seek(fp);
+						}
+						/*else
+						{
+							continue;
+						}*/
+					}
+					////System.out.println("\r\n\n E-EXTRA = "+secView);
+
+					////System.out.println(sectionContents);
+					
+					//System.out.println("xmlObj.jid OUTER ==> "+xmlObj.jid);
+					//if(((!xmlObj.jid.equalsIgnoreCase("TRSTMH"))&&(!xmlObj.jid.equalsIgnoreCase("JJBE")) &&(!xmlObj.jid.equalsIgnoreCase("ANTAGE"))) ||( Tag.equalsIgnoreCase("</CE:APPENDICES>")))
+					if(HeadGroup.artDochead.indexOf("}\r\n\\pictogram{",0)!=-1)
+					{
+					HeadGroup.artDochead=HeadGroup.artDochead.substring(0,HeadGroup.artDochead.indexOf("}\r\n\\pictogram{",0));
+					}
+					if(((!xmlObj.jid.equalsIgnoreCase("TRSTMH"))&&(!xmlObj.jid.equalsIgnoreCase("JJBE"))&&(!xmlObj.jid.equalsIgnoreCase("CIRCIR"))&&(!modelDSec) &&(!xmlObj.jid.equalsIgnoreCase("ANTAGE"))&&(!xmlObj.jid.equalsIgnoreCase("DRUPOL"))&&(!xmlObj.jid.equals("INHE"))&&(!xmlObj.jid.equalsIgnoreCase("GAIPOS"))&&(!xmlObj.jid.equalsIgnoreCase("YSEIZ"))&&(!xmlObj.jid.equalsIgnoreCase("IHE"))))
+					//if((!xmlObj.jid.equalsIgnoreCase("TRSTMH"))&&(!xmlObj.jid.equalsIgnoreCase("JJBE")) &&(!xmlObj.jid.equalsIgnoreCase("ANTAGE")))
+					{
+						
+						//if((!xmlObj.jid.equalsIgnoreCase("ANTAGE")))
+						//{
+						//System.out.println("HeadGroup.artDochead : "+isextended);
+							
+							if (sectionCount==1)
+							{
+								if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base")||HeadGroup.artDochead.equalsIgnoreCase("Technical point")||HeadGroup.artDochead.equalsIgnoreCase("Basic maneuver")||HeadGroup.artDochead.equalsIgnoreCase("Surgical technique"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("JCHIR")||xmlObj.jid.equalsIgnoreCase("JCHIRV")||xmlObj.jid.equalsIgnoreCase("JVS"))&&(isViewRole==false)){
+									firstSection=true;
+									ModleBySevtion.append("\r\n\\begin{sidebox}{%\r\n");
+									//***************31/08/20069****
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+									//******************************
+
+								}
+								else{
+									if(check_extended==false)//10-07-2012
+									{
+										sectionContents.append("\r\n\\section{");
+										tableContents+="\r\n\\item ";
+									}
+								}
+								//System.out.println("xmlObj.jid==> "+xmlObj.jid);
+							}
+							else if (sectionCount==2)
+							{
+								sectionContents.append("\r\n\\subsection{");
+								tableContents+="\r\n\\item{\\hskip18pt}";
+							}
+							else if (sectionCount==3)
+							{
+								sectionContents.append("\r\n\\subsubsection{");
+								tableContents+="\r\n\\item{\\hskip43pt}";
+							}
+							else if (sectionCount==4)
+								sectionContents.append("\r\n\\paragraph{");
+							else if (sectionCount==5)
+								sectionContents.append("\r\n\\subparagraph{");
+							else if (sectionCount==6)
+								sectionContents.append("\r\n\\subsubparagraph{");
+		//to be defined     else if (sectionCount==7)
+		//						sectionContents.append("\r\n\r\n\\subsubparagraph{");
+		//					else if (sectionCount==8)
+		//						sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+
+							//15-06-2010
+							 if((HeadGroup.artDochead.equalsIgnoreCase("Student corner"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("GCB"))&&(xmlObj.jid.equalsIgnoreCase("CLINRE"))&&(xmlObj.jid.equalsIgnoreCase("CLIREX"))){
+									firstSection=true;
+									ModleBySevtion.append("\r\n\\begin{sidebox}{%");
+									//***************31/08/20069****
+									//System.out.println("ModleBySevtion ==> "+ModleBySevtion);
+									ModleBySevtion.append("\r\n\\section{");
+									ModleByGCB.append("\r\n\\section{");
+									//sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+									//******************************
+									
+								}
+							//System.out.println("---------> "+secId);
+							if(secId.length()>0)//07-08-2010
+							{
+								String tepm_sec_id=xmlObj.getHypertarget(secId);
+								if(check_extended==true)
+								{
+									hyperlink_id=tepm_sec_id;
+									if(checkCompact==false)
+									sectionContents.append(tepm_sec_id);
+									check_extended=false;
+								}
+								else
+								{
+									if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base")||HeadGroup.artDochead.equalsIgnoreCase("Technical point")||HeadGroup.artDochead.equalsIgnoreCase("Basic maneuver")||HeadGroup.artDochead.equalsIgnoreCase("Surgical technique"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("JCHIR")||xmlObj.jid.equalsIgnoreCase("JCHIRV")||xmlObj.jid.equalsIgnoreCase("JVS"))&&(isViewRole==false))
+									{
+										long fp=fin.getFilePointer();
+										String statTag=tag;
+										boolean islebal=false;
+										while(!statTag.equalsIgnoreCase("</CE:SECTION-TITLE>"))
+										{
+											ch= (char)fin.read();						
+								
+											if (ch=='<')
+											{
+												statTag= xmlObj.getTag().toUpperCase();
+												//System.out.println("statTag "+statTag);
+												if(statTag.equalsIgnoreCase("<CE:LABEL>"))
+												{
+													islebal=true;
+													break;
+												}
+											}
+										}
+										fin.seek(fp);
+										//System.out.println("tag "+tag);
+										//System.out.println("islebal "+islebal);
+										//sectionContents.append(tepm_sec_id);
+										if(islebal==true)
+										{
+											islebal=false;
+											issecID=true;
+											Tsec="{"+tepm_sec_id;
+										}
+										else
+										{
+											sectionContents.append(tepm_sec_id);
+										}
+									}
+									else
+									{
+										sectionContents.append(tepm_sec_id);
+									}
+								}
+								//sectionContents.append(xmlObj.getHypertarget(secId));
+								//System.out.println("sectionContents ==> "+sectionContents);
+								//System.in.read();
+							}
+							secId    = "";
+							//System.out.println("xmlObj.jid==> "+xmlObj.jid+"sectionContents "+sectionContents);
+					   //}
+					}
+					
+					//[17/04/2007]
+					else if(Tag.equalsIgnoreCase("</CE:APPENDICES>")&&(!xmlObj.jid.equalsIgnoreCase("IHE"))&&(!xmlObj.jid.equalsIgnoreCase("JJBE"))&&(!xmlObj.jid.equalsIgnoreCase("CIRCIR"))&&(!xmlObj.jid.equalsIgnoreCase("GAIPOS"))&&(!xmlObj.jid.equalsIgnoreCase("YSEIZ")))
+					//else if((Tag.equalsIgnoreCase("</CE:APPENDICES>"))&&(!xmlObj.jid.equalsIgnoreCase("ANTAGE")))
+					{
+						//System.out.println("xmlObj.jid==> "+xmlObj.jid+" secId "+secId);
+						//System.out.println("xmlObj.jid==> "+xmlObj.jid+"  sectionCount "+sectionCount);
+						if(!modelDSec)
+						{
+						if (sectionCount==1)
+						{
+								if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base")||HeadGroup.artDochead.equalsIgnoreCase("Technical point")||HeadGroup.artDochead.equalsIgnoreCase("Basic maneuver")||HeadGroup.artDochead.equalsIgnoreCase("Surgical technique"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("JCHIR")||xmlObj.jid.equalsIgnoreCase("JCHIRV")||xmlObj.jid.equalsIgnoreCase("JVS"))&&(isViewRole==false)){
+									firstSection=true;
+									ModleBySevtion.append("\r\n\\begin{sidebox}{%\r\n");
+									//head1=true;
+									//***************31/08/20069****
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+									//******************************
+								}
+								else{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+									}
+									//blocked
+							/*sectionContents.append("\r\n\\section{");
+							tableContents+="\r\n\\item ";
+							head1=true;*/
+							//till here
+							//System.out.println("xmlObj.jid==> "+xmlObj.jid);
+						}
+						}
+						if((!xmlObj.jid.equalsIgnoreCase("ANTAGE")))
+						{
+						
+							if (sectionCount==1)
+							{
+								if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base")||HeadGroup.artDochead.equalsIgnoreCase("Technical point")||HeadGroup.artDochead.equalsIgnoreCase("Basic maneuver")||HeadGroup.artDochead.equalsIgnoreCase("Surgical technique"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("JCHIR")||xmlObj.jid.equalsIgnoreCase("JCHIRV")||xmlObj.jid.equalsIgnoreCase("JVS"))&&(isViewRole==false)){
+									firstSection=true;
+									ModleBySevtion.append("\r\n\\begin{sidebox}{%\r\n");
+									//head1=true;
+									//***************31/08/20069****
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+									//******************************
+								}
+								else{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+									}
+								//blocked
+								/*sectionContents.append("\r\n\\section{");
+								tableContents+="\r\n\\item ";
+								head1=true;
+								*/
+								//System.out.println("xmlObj.jid==> "+xmlObj.jid);
+							}
+							else if (sectionCount==2)
+							{
+								sectionContents.append("\r\n\\subsection{");
+								tableContents+="\r\n\\item{\\hskip18pt}";
+							}
+							else if (sectionCount==3)
+							{
+								sectionContents.append("\r\n\\subsubsection{");
+								tableContents+="\r\n\\item{\\hskip43pt}";
+							}
+							else if (sectionCount==4)
+								sectionContents.append("\r\n\\paragraph{");
+							else if (sectionCount==5)
+								sectionContents.append("\r\n\\subparagraph{");
+							else if (sectionCount==6)
+								sectionContents.append("\r\n\\subsubparagraph{");
+		//to be defined     else if (sectionCount==7)
+		//						sectionContents.append("\r\n\r\n\\subsubparagraph{");
+		//					else if (sectionCount==8)
+		//						sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+						}
+						if(secId.length()>0)
+							sectionContents.append(xmlObj.getHypertarget(secId));
+						secId    = "";
+					}
+					
+				}
+				else if (tag.equals("<CE:LABEL>"))
+				{
+					secNo= xmlObj.extractData("</CE:LABEL>", true);
+					tag = xmlObj.getNextTag();
+					//if(!tag.startsWith("<CE:SECTION-TITLE")||!tag.startsWith("<CE:SECTION-TITLE "))
+					if(!tag.startsWith("<CE:SECTION-TITLE>")&& !tag.startsWith("<CE:SECTION-TITLE "))
+					{
+						boolean isapp = false;
+						if(secNo.length()>0)
+						{
+							if(firstSection==true)
+								{
+									if(issecID==true)
+									{
+										Tsec+="\\Secno{"+secNo+"}";
+										issecID=false;
+									}
+									else
+										Tsec+="{\\Secno{"+secNo+"}";
+									
+									//System.out.println("1 ModleBySevtion "+ModleBySevtion);
+									//System.in.read();
+								}
+								else
+								{
+//									sectionContents.append("\\Secno{"+secNo+"}");//11/05/2009
+									sectionContents.append("\\Secno{"+secNo+"}}\\label{PL"+planref+"}");//Added lable on 19-12-2019 to generate TOC page number
+									isapp = true;
+									//BodyGroup.tableContents+=""+secNo+"\\dotfill\\quad00";//Updated on 11-05-2015 for TOC auto pagerange
+									BodyGroup.tableContents+=""+secNo+"\\dotfill\\planref{PL"+planref+"}";
+									planref++;
+								}
+						}
+						
+//						sectionContents.append(xmlObj.getHypertarget(secId));
+						if(!isapp){						
+							sectionContents.append("}");
+						}else{
+							isapp = false;
+						}
+						//10-092010
+						sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));//old
+					}
+				}
+				else if (tag.startsWith("<CE:SECTION-TITLE")||tag.startsWith("<CE:SECTION-TITLE "))
+				{
+					xmlObj.protectCheck=true;
+					secTitle= xmlObj.extractData("</CE:SECTION-TITLE>", true);
+					secTitleRole = xmlObj.getAttributeValue(tag, "ROLE");
+//					System.out.println("SECTION-TITLE :: "+secTitle);
+					if(secTitleRole.length()>0){
+						System.out.println("SECTION-TITLE ROLE :: "+secTitleRole);
+					}
+					//System.out.println(sectionCount+"AENJ_sectionCount ==> "+AENJ_sectionCount);
+					if(AENJ_sectionCount==1&& xmlObj.textbox_body==true)//24-09-2010
+					{
+						section_title_aenj=secTitle;
+						//System.out.println("@@@@@@@@@@@@@ "+secTitle);				
+					}
+					
+					if(head1==true && XMLObjects.upperCaseSecJid.contains((Object)xmlObj.jid))
+					{
+						secTitle=secTitle.toUpperCase();
+						
+					}
+					
+					
+					//********************************[Diff handled in SecTitle(24/02/2010)]***************************
+					TempDiffsecTitle=secTitle;
+					if(TempDiffsecTitle.indexOf("ThomsonDiff",0)!=-1)
+					{
+						
+						TempDiffsecTitle=TempDiffsecTitle.replaceAll("ThomsonDiff\\\\_ThomsonDiffOpenBrace([0-9]+)","");
+						TempDiffsecTitle=TempDiffsecTitle.replaceAll("ThomsonDiffCloseBrace","");
+					}
+					if(TempDiffsecTitle.indexOf("THOMSONDIFF",0)!=-1)
+					{
+						
+						TempDiffsecTitle=TempDiffsecTitle.replaceAll("THOMSONDIFF\\\\_THOMSONDIFFOPENBRACE([0-9]+)","");
+						TempDiffsecTitle=TempDiffsecTitle.replaceAll("THOMSONDIFFCLOSEBRACE","");
+					}
+					if(TempDiffsecTitle.equalsIgnoreCase("Flash code/QR code"))
+					{
+						//checkQRCodeVal=true;
+						//checkSectVal =TempDiffsecTitle.toLowerCase().indexOf("claration d'int");
+					}
+					//********************************[Diff handled in SecTitle]***************************
+					if (firstP== true)
+					{
+						if(secNo.length()>0)
+						{
+							if((!xmlObj.jid.equalsIgnoreCase("TRSTMH"))&&(!xmlObj.jid.equalsIgnoreCase("JJBE"))&&(!xmlObj.jid.equalsIgnoreCase("CIRCIR"))&&(!modelDSec)&&(!xmlObj.jid.equalsIgnoreCase("ANTAGE"))&&(!xmlObj.jid.equalsIgnoreCase("DRUPOL"))&&(!xmlObj.jid.equals("IHE"))&&(!xmlObj.jid.equals("INHE"))&&(!xmlObj.jid.equalsIgnoreCase("GAIPOS"))&&(!xmlObj.jid.equalsIgnoreCase("YSEIZ")))
+							{
+								if(firstSection==true)
+								{
+									if(secNo.length()>0){
+										if(issecID==true)
+										{
+											Tsec+="\\Secno{"+secNo+"}";
+											issecID=false;
+										}
+										else
+											Tsec+="{\\Secno{"+secNo+"}";
+									}else
+									{
+										sectionContents.append("\\Secno{"+secNo+"}");
+									}
+									//System.out.println("1 ModleBySevtion "+ModleBySevtion);
+									//System.in.read();
+								}
+								else
+								{
+									sectionContents.append("\\Secno{"+secNo+"}");
+								}
+								
+								if(sectionCount<4)
+								tableContents+=secNo+".";
+							}
+							
+						}
+						if((!xmlObj.jid.equalsIgnoreCase("TRSTMH"))&&(!xmlObj.jid.equalsIgnoreCase("JJBE"))&&(!xmlObj.jid.equalsIgnoreCase("CIRCIR"))&&(!modelDSec)&&(!xmlObj.jid.equalsIgnoreCase("GAIPOS"))&&(!xmlObj.jid.equalsIgnoreCase("YSEIZ"))&&(!xmlObj.jid.equalsIgnoreCase("IHE"))&&(!xmlObj.jid.equalsIgnoreCase("ANTAGE"))&&(!xmlObj.jid.equalsIgnoreCase("DRUPOL"))&&(!xmlObj.jid.equals("INHE")))
+						{
+							if(secId.length()>0)
+							{
+								if(firstSection==true)
+								{
+									if(secNo.length()>0){
+									ModleBySevtion.append(xmlObj.getHypertarget(secId));
+									}else{
+
+										sectionContents.append(xmlObj.getHypertarget(secId));
+									}
+								}
+								else
+								{
+									sectionContents.append(xmlObj.getHypertarget(secId));
+								}
+							}
+						}
+						
+						
+						//sectionContents.append(secTitle+"}");//old
+						//[19/03/2007]
+						
+						 /*
+						  * Added By Arvind [30_03_2007]
+						  * Change Request By: Vivek
+						  * Change Point : As per the new stylesheet of TRSTMH, we need toset "authors' contributions",  
+										   any "disclaimers" present, and "acknowledgement" sections also in 
+										   the same style as Funding, Conflict of interest, Ethical approval..
+
+						  */
+					   if((xmlObj.jid.equalsIgnoreCase("TRSTMH")||xmlObj.jid.equals("INHE")) &&((TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") )||(TempDiffsecTitle.toLowerCase().startsWith("conflict of interest") ) ||(TempDiffsecTitle.startsWith("Funding")) || (TempDiffsecTitle.startsWith("funding")) || (TempDiffsecTitle.startsWith("Ethical approval"))|| (TempDiffsecTitle.toLowerCase().startsWith("ethics approval"))|| (TempDiffsecTitle.toLowerCase().startsWith("ethical clearance"))||(TempDiffsecTitle.startsWith("ethical approval"))||(TempDiffsecTitle.startsWith("Ethical Approval"))||(TempDiffsecTitle.toLowerCase().startsWith("competing interests"))))
+						{
+							
+								if(secNo.length()==0)
+								{
+								//	System.out.println("1111****111");
+										if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											/**
+													Date: 31/08/2009
+													Requirement: As per Client requirement, splsection should be used with TRSTMH journal in Gulliver model 
+													Requested By : Vivek [TPMS]
+												*/
+											/*if(xmlObj.jid.equalsIgnoreCase("TRSTMH")&&xmlObj.check_GulliverJid==true)
+											{
+												sbr.append("\r\n\\section{");
+											}
+											else*/
+											{
+											sbr.append("\r\n\\splsection{");
+											}
+											tableContents+="\r\n\\item ";
+											//System.out.println("sbr--------->"+secTitle);
+											//System.in.read();
+											head1=true;
+										}
+										sbr.append(secTitle+"}");
+										if(secId.length()>0)
+											sbr.append(xmlObj.getHypertarget(secId));
+										secId    = "";
+
+								}
+								else
+								{
+									if(xt.serverstatus.length()>0)
+									{
+										xt_log.info("[ERROR] Label found in Journal TRSTMH!!! in "+secTitle+". ");
+										
+									}
+									else{
+									JOptionPane.showMessageDialog(null,"Label found in Journal TRSTMH!!! in "+secTitle+". ","ERROR!!!", JOptionPane.INFORMATION_MESSAGE);
+									}
+									if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sectionContents.append("\r\n\\section{");
+
+											tableContents+="\r\n\\item ";
+			
+											head1=true;
+										}
+										else if (sectionCount==2)
+									{
+										sectionContents.append("\r\n\\subsection{");
+										tableContents+="\r\n\\item{\\hskip18pt}";
+									}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+	//to be defined				else if (sectionCount==7)
+	//								sectionContents.append("\r\n\r\n\\subsubparagraph{");
+	//							else if (sectionCount==8)
+	//								sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+										if(secNo.length()>0)
+										{
+											sectionContents.append("\\Secno{"+secNo+"}");
+												if(sectionCount<4)
+												tableContents+=secNo+".";
+										}
+									if((HeadGroup.artDochead.equalsIgnoreCase("Student corner"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("GCB"))&&(xmlObj.jid.equalsIgnoreCase("CLINRE"))&&(xmlObj.jid.equalsIgnoreCase("CLIREX"))){
+										ModleBySevtion.append(secTitle+"}");
+										ModleByGCB.append(secTitle+"}");
+											//System.out.println("1 ModleBySevtion "+ModleBySevtion);
+											//sectionContents.append(secTitle+"}");
+
+									}else//15-06-2010
+									sectionContents.append(secTitle+"}");
+									if(secId.length()>0)
+											sectionContents.append(xmlObj.getHypertarget(secId));
+									secId    = "";
+								}
+					
+						}
+						/*
+						  * Added By Arvind [31_03_2007]
+						  * Change Request By: Vivek
+						  * Change Point : As per the new stylesheet of TRSTMH, we need toset "authors' contributions",  
+										   any "disclaimers" present, and "acknowledgement" sections also in 
+										   the same style as Funding, Conflict of interest, Ethical approval..
+
+						  */	
+						  /*
+						  * Added By Ravi [16/05/2008]
+						  * Change Request By: Vivek via mail dated 16/05/2008
+						  * Change Point : As per FS Dept , we have update no of  "authors' contributions" type,  
+						  */	
+
+							
+						else if((xmlObj.jid.equalsIgnoreCase("TRSTMH")||xmlObj.jid.equals("INHE")) &&((TempDiffsecTitle.toLowerCase().startsWith("author's contribution")||(TempDiffsecTitle.toLowerCase().startsWith("author contributions") ))||(TempDiffsecTitle.toLowerCase().startsWith("author's contributions") )||(TempDiffsecTitle.toLowerCase().startsWith("authors' contribution") )||(TempDiffsecTitle.toLowerCase().startsWith("authors' contributions")						)||(TempDiffsecTitle.toLowerCase().startsWith("editors' notes") )||(TempDiffsecTitle.toLowerCase().startsWith("editor's notes") )||(TempDiffsecTitle.toLowerCase().startsWith("editors' note") )||(TempDiffsecTitle.toLowerCase().startsWith("editor's note"))||(TempDiffsecTitle.toLowerCase().startsWith("authors' notes") )||(TempDiffsecTitle.toLowerCase().startsWith("author's notes") )||(TempDiffsecTitle.toLowerCase().startsWith("authors' note") )||(TempDiffsecTitle.toLowerCase().startsWith("author's note")
+						)||(TempDiffsecTitle.toLowerCase().startsWith("disclaimers") )||(TempDiffsecTitle.startsWith("Disclaimer") )||(TempDiffsecTitle.toLowerCase().startsWith("acknowledgement") )||(TempDiffsecTitle.startsWith("Acknowledgements") )||(TempDiffsecTitle.toLowerCase().startsWith("authors' disclaimer"))||(TempDiffsecTitle.toLowerCase().startsWith("author's disclaimer"))||(TempDiffsecTitle.toLowerCase().startsWith("authors disclaimer"))))
+						{
+							
+								if(secNo.length()==0)
+								{
+									//System.out.println("****777777777****");
+										if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											/**
+												Date: 31/08/2009
+												Requirement: As per Client requirement, splsection should be used with TRSTMH journal in Gulliver model 
+												Requested By : Vivek [TPMS]
+											*/
+											/*if(xmlObj.jid.equalsIgnoreCase("TRSTMH")&&xmlObj.check_GulliverJid==true)
+											{
+												sectionContents.append("\r\n\\section{");
+											}
+											else*/
+												{
+											sectionContents.append("\r\n\\splsection{");
+											}
+											tableContents+="\r\n\\item ";
+											//System.out.println("sbr--aaaaaaaa------->"+secTitle);
+											//System.in.read();
+											head1=true;
+										}
+										sectionContents.append(secTitle+"}");
+										if(secId.length()>0)
+											sectionContents.append(xmlObj.getHypertarget(secId));
+										secId    = "";
+
+								}
+								else
+								{
+									if(xt.serverstatus.length()>0)
+									{
+										xt_log.info("[ERROR] Label found in Journal TRSTMH!!! in "+secTitle+". ");
+										
+									}
+									else{
+										JOptionPane.showMessageDialog(null,"Label found in Journal TRSTMH!!! in "+secTitle+". ","ERROR!!!", JOptionPane.INFORMATION_MESSAGE);
+									}
+									if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sectionContents.append("\r\n\\section{");
+
+											tableContents+="\r\n\\item ";
+			
+											head1=true;
+										}
+										else if (sectionCount==2)
+									{
+										sectionContents.append("\r\n\\subsection{");
+										tableContents+="\r\n\\item{\\hskip18pt}";
+									}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+	//to be defined				else if (sectionCount==7)
+	//								sectionContents.append("\r\n\r\n\\subsubparagraph{");
+	//							else if (sectionCount==8)
+	//								sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+										if(secNo.length()>0)
+										{
+											sectionContents.append("\\Secno{"+secNo+"}");
+												if(sectionCount<4)
+												tableContents+=secNo+".";
+										}
+									sectionContents.append(secTitle+"}");
+									if(secId.length()>0)
+											sectionContents.append(xmlObj.getHypertarget(secId));
+									secId    = "";
+								}
+						}
+					/*
+					 * Added By Arvind [30_03_2007]
+					 * Change Request By: Vivek
+					 * Change Point : As per the new stylesheet of TRSTMH, we need toset "authors' contributions",  
+									  any "disclaimers" present, and "acknowledgement" sections also in 
+									  the same style as Funding, Conflict of interest, Ethical approval..
+    				 */
+					
+				else if((xmlObj.jid.equalsIgnoreCase("TRSTMH")||xmlObj.jid.equals("INHE")) && ((!(TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") ))|| (!(TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")) ) || (!(TempDiffsecTitle.startsWith("Funding"))) ||(!(TempDiffsecTitle.startsWith("funding")))||(!(TempDiffsecTitle.startsWith("Ethical approval")))||(!(TempDiffsecTitle.toLowerCase().startsWith("ethics approval")))|| (!TempDiffsecTitle.toLowerCase().startsWith("ethical clearance")) ||(!(TempDiffsecTitle.startsWith("ethical approval")))||(!(TempDiffsecTitle.toLowerCase().startsWith("ethics approval")))||(!(TempDiffsecTitle.startsWith("Ethical Approval")))||(!(TempDiffsecTitle.startsWith("authors' contributions")))||(!TempDiffsecTitle.toLowerCase().startsWith("author contributions") )||(!(TempDiffsecTitle.startsWith("Editors' notes") ))||(!(TempDiffsecTitle.startsWith("Editor's notes") ))||(!(TempDiffsecTitle.startsWith("Editors' note") ))||(!(TempDiffsecTitle.startsWith("Editor's note")))||(!(TempDiffsecTitle.startsWith("Authors' notes") ))||(!(TempDiffsecTitle.startsWith("Author's notes") ))||(!(TempDiffsecTitle.startsWith("Authors' note") ))||(!(TempDiffsecTitle.startsWith("Author's note") ))||(!(TempDiffsecTitle.startsWith("disclaimers")) )||(!(TempDiffsecTitle.startsWith("Disclaimer") ))||(!(TempDiffsecTitle.toLowerCase().startsWith("acknowledgement")))||(!(TempDiffsecTitle.startsWith("Acknowledgements") ))||(!TempDiffsecTitle.toLowerCase().startsWith("authors' disclaimer"))||(!TempDiffsecTitle.toLowerCase().startsWith("author's disclaimer"))||(!TempDiffsecTitle.toLowerCase().startsWith("authors disclaimer"))||(!TempDiffsecTitle.toLowerCase().startsWith("competing interests"))))
+					{
+							//sectionContents.append("\r\n\\section{"+secTitle+"}");
+								if (sectionCount==1)
+								{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+								}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+//to be defined			else if (sectionCount==7)
+//									sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//								else if (sectionCount==8)
+//									sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+				
+
+								if(secId.length()>0)
+									sectionContents.append(xmlObj.getHypertarget(secId));
+								secId    = "";
+								if(secNo.length()>0)
+								{
+									sectionContents.append("\\Secno{"+secNo+"}");
+										if(sectionCount<4)
+										tableContents+=secNo+".";
+								}
+								sectionContents.append(secTitle+"}");
+								
+
+							
+						}
+//**********************************************************************************************
+					else if((xmlObj.jid.equalsIgnoreCase("DRUPOL")) &&((TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") )||(TempDiffsecTitle.toLowerCase().startsWith("conflict of interest") ) ))
+						{
+							
+								if(secNo.length()==0)
+								{
+								//	System.out.println("1111****111");
+										if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sbr.append("\r\n\\section{");
+											tableContents+="\r\n\\item ";
+											//System.out.println("sbr--------->"+secTitle);
+											//System.in.read();
+											head1=true;
+										}
+										sbr.append(secTitle+"}");
+										if(secId.length()>0)
+											sbr.append(xmlObj.getHypertarget(secId));
+										secId    = "";
+
+								}
+								else
+								{
+									if(xt.serverstatus.length()>0)
+									{
+										xt_log.info("[ERROR] Label found in Journal DRUPAL!!! in "+secTitle+". ");
+										
+									}
+									else{
+									JOptionPane.showMessageDialog(null,"Label found in Journal DRUPOL!!! in "+secTitle+". ","ERROR!!!", JOptionPane.INFORMATION_MESSAGE);
+									}
+									if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sectionContents.append("\r\n\\section{");
+
+											tableContents+="\r\n\\item ";
+			
+											head1=true;
+										}
+										else if (sectionCount==2)
+									{
+										sectionContents.append("\r\n\\subsection{");
+										tableContents+="\r\n\\item{\\hskip18pt}";
+									}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+	//to be defined				else if (sectionCount==7)
+	//								sectionContents.append("\r\n\r\n\\subsubparagraph{");
+	//							else if (sectionCount==8)
+	//								sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+										if(secNo.length()>0)
+										{
+											sectionContents.append("\\Secno{"+secNo+"}");
+												if(sectionCount<4)
+												tableContents+=secNo+".";
+										}
+									sectionContents.append(secTitle+"}");
+									if(secId.length()>0)
+											sectionContents.append(xmlObj.getHypertarget(secId));
+									secId    = "";
+								}
+					
+						}
+					else if(modelDSec &&((TempDiffsecTitle.toLowerCase().indexOf("claration d'int")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("disclosure of interest")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("d{\\aseacute}claration de liens d'int{\\aseacute}r{\\asehat}ts")!=-1)))
+					{
+						System.out.println("TempDiffsecTitle==1==>"+TempDiffsecTitle);
+						
+							if(secNo.length()==0)
+							{
+							//	System.out.println("1111****111");
+									if (sectionCount==1)
+									{
+										//sectionContents.append("\r\n\\section{");
+										//sbr.append("\r\n\\splsection{"+secTitle+"}");
+										sbr.append("\r\n\\section{");
+										tableContents+="\r\n\\item ";
+										//System.out.println("sbr--------->"+secTitle);
+										//System.in.read();
+										head1=true;
+									}
+									sbr.append(secTitle+"}");
+									if(secId.length()>0)
+										sbr.append(xmlObj.getHypertarget(secId));
+									secId    = "";
+
+							}
+							else
+							{
+								if(xt.serverstatus.length()>0)
+								{
+									xt_log.info("[ERROR] Label found in Journal DRUPAL!!! in "+secTitle+". ");
+									
+								}
+								else{
+								JOptionPane.showMessageDialog(null,"Label found in Journal DRUPOL!!! in "+secTitle+". ","ERROR!!!", JOptionPane.INFORMATION_MESSAGE);
+								}
+								if (sectionCount==1)
+									{
+										//sectionContents.append("\r\n\\section{");
+										//sbr.append("\r\n\\splsection{"+secTitle+"}");
+										sectionContents.append("\r\n\\section{");
+
+										tableContents+="\r\n\\item ";
+		
+										head1=true;
+									}
+									else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+							else if (sectionCount==3)
+							{
+								sectionContents.append("\r\n\\subsubsection{");
+								tableContents+="\r\n\\item{\\hskip43pt}";
+							}
+							else if (sectionCount==4)
+								sectionContents.append("\r\n\\paragraph{");
+							else if (sectionCount==5)
+								sectionContents.append("\r\n\\subparagraph{");
+							else if (sectionCount==6)
+								sectionContents.append("\r\n\\subsubparagraph{");
+//to be defined				else if (sectionCount==7)
+//								sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//							else if (sectionCount==8)
+//								sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+									if(secNo.length()>0)
+									{
+										sectionContents.append("\\Secno{"+secNo+"}");
+											if(sectionCount<4)
+											tableContents+=secNo+".";
+									}
+								sectionContents.append(secTitle+"}");
+								if(secId.length()>0)
+										sectionContents.append(xmlObj.getHypertarget(secId));
+								secId    = "";
+							}
+				
+					}
+					else if((xmlObj.jid.equalsIgnoreCase("DRUPOL")) && ((!(TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") ))|| (!(TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")) )))
+					{
+						System.out.println("TempDiffsecTitle==2==>"+TempDiffsecTitle);
+							//sectionContents.append("\r\n\\section{"+secTitle+"}");
+								if (sectionCount==1)
+								{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+								}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+//to be defined			else if (sectionCount==7)
+//									sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//								else if (sectionCount==8)
+//									sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+				
+
+								if(secId.length()>0)
+									sectionContents.append(xmlObj.getHypertarget(secId));
+								secId    = "";
+								if(secNo.length()>0)
+								{
+									sectionContents.append("\\Secno{"+secNo+"}");
+										if(sectionCount<4)
+										tableContents+=secNo+".";
+								}
+								sectionContents.append(secTitle+"}");
+								
+
+							
+						}
+						/**
+						*Added By : Ravi [24/03/2007]
+						* Change Point : Journal JJBE move the section below the acknowledgment
+						* Change Request : Vivek
+						*/
+						else if((xmlObj.jid.equalsIgnoreCase("JJBE")||(xmlObj.jid.equalsIgnoreCase("GAIPOS"))||(xmlObj.jid.equalsIgnoreCase("YSEIZ"))) && (!(TempDiffsecTitle.toLowerCase().startsWith("conflict of interest") )))
+						{
+							System.out.println("TempDiffsecTitle==3==>"+TempDiffsecTitle);
+							//System.out.println("1--------1");
+								//sectionContents.append("\r\n\\section{"+secTitle+"}");
+								if (sectionCount==1)
+								{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+								}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+//to be defined			else if (sectionCount==7)
+//									sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//								else if (sectionCount==8)
+//									sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+								if(secId.length()>0)
+									sectionContents.append(xmlObj.getHypertarget(secId));
+								secId    = "";
+								if(secNo.length()>0)
+								{
+									sectionContents.append("\\Secno{"+secNo+"}");
+										if(sectionCount<4)
+										tableContents+=secNo+".";
+								}
+								sectionContents.append(secTitle+"}");
+								
+								//***
+						}
+						else if((xmlObj.jid.equalsIgnoreCase("CIRCIR")) && ((!(TempDiffsecTitle.toLowerCase().startsWith("conflict of interest"))) && (!(TempDiffsecTitle.toLowerCase().startsWith("conflicto de intereses")))))
+						{
+							System.out.println("TempDiffsecTitle==4==>"+TempDiffsecTitle);
+							//System.out.println("1--------1");
+								//sectionContents.append("\r\n\\section{"+secTitle+"}");
+								if (sectionCount==1)
+								{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+								}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+//to be defined			else if (sectionCount==7)
+//									sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//								else if (sectionCount==8)
+//									sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+								if(secId.length()>0)
+									sectionContents.append(xmlObj.getHypertarget(secId));
+								secId    = "";
+								if(secNo.length()>0)
+								{
+									sectionContents.append("\\Secno{"+secNo+"}");
+										if(sectionCount<4)
+										tableContents+=secNo+".";
+								}
+								sectionContents.append(secTitle+"}");
+								
+					//***
+						}
+						else if((xmlObj.jid.equalsIgnoreCase("JJBE")||(xmlObj.jid.equalsIgnoreCase("GAIPOS"))||(xmlObj.jid.equalsIgnoreCase("YSEIZ"))) && (TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")))
+						{
+							System.out.println("TempDiffsecTitle==5==>"+TempDiffsecTitle);
+							//System.out.println("secTitle==> "+secTitle);
+							if(secNo.length()==0)
+								{
+										if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sbr.append("\r\n\\section{");
+											tableContents+="\r\n\\item ";
+											head1=true;
+										}
+										sbr.append(secTitle+"}");
+										if(secId.length()>0)
+											sbr.append(xmlObj.getHypertarget(secId));
+										secId    = "";
+								}
+								else
+								{
+									if(xt.serverstatus.length()>0)
+									{
+										xt_log.info("[ERROR] Label found in Journal !!! in "+secTitle+". ");
+										
+									}
+									else{
+									JOptionPane.showMessageDialog(null,"Label found in Journal !!! in "+secTitle+". ","ERROR!!!", JOptionPane.INFORMATION_MESSAGE);
+									}
+									if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sectionContents.append("\r\n\\section{");
+											tableContents+="\r\n\\item ";
+											head1=true;
+										}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+										if(secNo.length()>0)
+										{
+											sectionContents.append("\\Secno{"+secNo+"}");
+												if(sectionCount<4)
+												tableContents+=secNo+".";
+										}
+									sectionContents.append(secTitle+"}");
+									if(secId.length()>0)
+											sectionContents.append(xmlObj.getHypertarget(secId));
+									secId    = "";
+								}
+						
+						}
+						else if((xmlObj.jid.equalsIgnoreCase("CIRCIR")) && ((TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")) || (TempDiffsecTitle.toLowerCase().startsWith("conflicto de intereses"))))
+						{
+							System.out.println("TempDiffsecTitle==6==>"+TempDiffsecTitle);
+							//System.out.println("secTitle==============================================> "+secTitle);
+							if(secNo.length()==0)
+								{
+										if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sbr.append("\r\n\\section{");
+											tableContents+="\r\n\\item ";
+											head1=true;
+										}
+										sbr.append(secTitle+"}");
+										if(secId.length()>0)
+											sbr.append(xmlObj.getHypertarget(secId));
+										secId    = "";
+								}
+								else
+								{
+									if(xt.serverstatus.length()>0)
+									{
+										xt_log.info("[ERROR] Label found in Journal !!! in "+secTitle+". ");
+										
+									}
+									else{
+									JOptionPane.showMessageDialog(null,"Label found in Journal !!! in "+secTitle+". ","ERROR!!!", JOptionPane.INFORMATION_MESSAGE);
+									}
+									if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sectionContents.append("\r\n\\section{");
+											tableContents+="\r\n\\item ";
+											head1=true;
+										}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+										if(secNo.length()>0)
+										{
+											sectionContents.append("\\Secno{"+secNo+"}");
+												if(sectionCount<4)
+												tableContents+=secNo+".";
+										}
+									sectionContents.append(secTitle+"}");
+									if(secId.length()>0)
+											sectionContents.append(xmlObj.getHypertarget(secId));
+									secId    = "";
+								}
+						
+						}
+						else if((xmlObj.jid.equalsIgnoreCase("IHE")) && (!(TempDiffsecTitle.toLowerCase().startsWith("fuentes") ))&& isFuentes==false)
+						{
+							//System.out.println("1--------1"+secTitle);
+								//sectionContents.append("\r\n\\section{"+secTitle+"}");
+								if (sectionCount==1)
+								{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+								}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+//to be defined			else if (sectionCount==7)
+//									sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//								else if (sectionCount==8)
+//									sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+								if(secId.length()>0)
+									sectionContents.append(xmlObj.getHypertarget(secId));
+								secId    = "";
+								if(secNo.length()>0)
+								{
+									sectionContents.append("\\Secno{"+secNo+"}");
+										if(sectionCount<4)
+										tableContents+=secNo+".";
+								}
+								sectionContents.append(secTitle+"}");
+								
+					//***
+						}
+						else if( modelDSec && (!(TempDiffsecTitle.toLowerCase().indexOf("claration d'int")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("disclosure of interest")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("d{\\aseacute}claration de liens d'int{\\aseacute}r{\\asehat}ts")!=-1)))
+						{
+							//System.out.println("1--------1"+secTitle);
+								//sectionContents.append("\r\n\\section{"+secTitle+"}");
+								if (sectionCount==1)
+								{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+								}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+//to be defined			else if (sectionCount==7)
+//									sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//								else if (sectionCount==8)
+//									sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+								if(secId.length()>0)
+									sectionContents.append(xmlObj.getHypertarget(secId));
+								secId    = "";
+								if(secNo.length()>0)
+								{
+									sectionContents.append("\\Secno{"+secNo+"}");
+										if(sectionCount<4)
+										tableContents+=secNo+".";
+								}
+								sectionContents.append(secTitle+"}");
+								
+					//***
+						}
+						else if((xmlObj.jid.equalsIgnoreCase("IHE")) && (!(TempDiffsecTitle.toLowerCase().startsWith("fuentes") ))&& isFuentes==true)
+						{
+							//System.out.println("sectionCount===>> "+sectionCount);
+								//sectionContents.append("\r\n\\section{"+secTitle+"}");
+								if (sectionCount==1)
+								{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+									isFuentes=false;
+								}
+								else if (sectionCount==2)
+								{
+									sbr.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sbr.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sbr.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sbr.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sbr.append("\r\n\\subsubparagraph{");
+//to be defined			else if (sectionCount==7)
+//									sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//								else if (sectionCount==8)
+//									sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+								if(secId.length()>0)
+								{
+									if(isFuentes)
+									sbr.append(xmlObj.getHypertarget(secId));
+									else
+										sectionContents.append(xmlObj.getHypertarget(secId));
+								}
+								secId    = "";
+								if(secNo.length()>0)
+								{
+									if(isFuentes)
+										sbr.append("\\Secno{"+secNo+"}");
+									else
+										sectionContents.append("\\Secno{"+secNo+"}");
+										if(sectionCount<4)
+										tableContents+=secNo+".";
+								}
+								if(isFuentes)
+									sbr.append(secTitle+"}");
+								else
+									sectionContents.append(secTitle+"}");
+								
+					//***
+						}
+						else if((xmlObj.jid.equalsIgnoreCase("IHE")) && (TempDiffsecTitle.toLowerCase().startsWith("fuentes")))
+						{		
+							if (sectionCount==1)
+								isFuentes=true;//11-07-2012
+							//System.out.println("11111111secTitle==> "+secTitle+" "+secNo.length());
+							if(secNo.length()==0)
+								{
+										if (sectionCount==1 && isFuentes)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sbr.append("\r\n\\section{");
+											tableContents+="\r\n\\item ";
+											head1=true;
+										}
+										else if (sectionCount==2)
+										{
+											sectionContents.append("\r\n\\subsection{");
+											tableContents+="\r\n\\item{\\hskip18pt}";
+										}
+										else if (sectionCount==3)
+										{
+											sectionContents.append("\r\n\\subsubsection{");
+											tableContents+="\r\n\\item{\\hskip43pt}";
+										}
+										else if (sectionCount==4)
+											sectionContents.append("\r\n\\paragraph{");
+										else if (sectionCount==5)
+											sectionContents.append("\r\n\\subparagraph{");
+										else if (sectionCount==6)
+											sectionContents.append("\r\n\\subsubparagraph{");
+										if (sectionCount==1 && isFuentes)
+											sbr.append(secTitle+"}");
+										else 
+											sectionContents.append(secTitle+"}");
+										if(secId.length()>0)
+										{
+											if (sectionCount==1 && isFuentes)
+												sbr.append(xmlObj.getHypertarget(secId));
+											else 
+												sectionContents.append(xmlObj.getHypertarget(secId));
+										}
+										secId    = "";
+									//System.out.println("sbr==> "+sbr);
+								}
+								else
+								{
+									if(xt.serverstatus.length()>0)
+									{
+										xt_log.info("[ERROR] Label found in Journal !!! in "+secTitle+". ");
+										
+									}
+									else{
+									JOptionPane.showMessageDialog(null,"Label found in Journal !!! in "+secTitle+". ","ERROR!!!", JOptionPane.INFORMATION_MESSAGE);
+									}
+									if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sectionContents.append("\r\n\\section{");
+											tableContents+="\r\n\\item ";
+											head1=true;
+										}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+//to be defined			else if (sectionCount==7)
+//									sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//								else if (sectionCount==8)
+//									sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+										if(secNo.length()>0)
+										{
+											sectionContents.append("\\Secno{"+secNo+"}");
+												if(sectionCount<4)
+												tableContents+=secNo+".";
+										}
+									sectionContents.append(secTitle+"}");
+									if(secId.length()>0)
+											sectionContents.append(xmlObj.getHypertarget(secId));
+									secId    = "";
+								}
+						
+						}
+
+
+
+//*******************************************************************************************
+						else if(xmlObj.jid.equalsIgnoreCase("ANTAGE") &&((TempDiffsecTitle.startsWith("Competing interests") )||(TempDiffsecTitle.toLowerCase().startsWith("competing interests") ) ||(TempDiffsecTitle.startsWith("Funding")) || (TempDiffsecTitle.startsWith("funding")) || (TempDiffsecTitle.startsWith("Ethical approval"))||(TempDiffsecTitle.startsWith("ethical approval"))||(TempDiffsecTitle.startsWith("Ethical Approval"))))
+						{
+							
+								if(secNo.length()==0)
+								{
+								//	System.out.println("1111****111");
+										if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sbr.append("\r\n\\section{");
+											tableContents+="\r\n\\item ";
+										//	System.out.println("sbr--------->"+sbr);
+	
+											head1=true;
+										}
+										sbr.append(secTitle+"}");
+										//System.out.println("sbr--------->"+sbr);
+										if(secId.length()>0)
+											sbr.append(xmlObj.getHypertarget(secId));
+										secId    = "";
+
+								}
+								else
+								{
+									if(xt.serverstatus.length()>0)
+									{
+										xt_log.info("[ERROR] Label found in Journal ANTAGE!!! in "+secTitle+". ");
+										
+									}
+									else{
+									JOptionPane.showMessageDialog(null,"Label found in Journal ANTAGE!!! in "+secTitle+". ","ERROR!!!", JOptionPane.INFORMATION_MESSAGE);
+									}
+									if (sectionCount==1)
+										{
+											//sectionContents.append("\r\n\\section{");
+											//sbr.append("\r\n\\splsection{"+secTitle+"}");
+											sectionContents.append("\r\n\\section{");
+
+											tableContents+="\r\n\\item ";
+			
+											head1=true;
+										}
+										else if (sectionCount==2)
+									{
+										sectionContents.append("\r\n\\subsection{");
+										tableContents+="\r\n\\item{\\hskip18pt}";
+									}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+	//to be defined				else if (sectionCount==7)
+	//								sectionContents.append("\r\n\r\n\\subsubparagraph{");
+	//							else if (sectionCount==8)
+	//								sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+										if(secNo.length()>0)
+										{
+											sectionContents.append("\\Secno{"+secNo+"}");
+												if(sectionCount<4)
+												tableContents+=secNo+".";
+										}
+									sectionContents.append(secTitle+"}");
+									if(secId.length()>0)
+											sectionContents.append(xmlObj.getHypertarget(secId));
+									secId    = "";
+								}
+						}
+						else if(xmlObj.jid.equalsIgnoreCase("ANTAGE") &&((!TempDiffsecTitle.startsWith("Competing interests") )||(!TempDiffsecTitle.toLowerCase().startsWith("competing interests") ) ||(!TempDiffsecTitle.startsWith("Funding")) || (!TempDiffsecTitle.startsWith("funding")) || (!TempDiffsecTitle.startsWith("Ethical approval"))||(!TempDiffsecTitle.startsWith("ethical approval"))||(!TempDiffsecTitle.startsWith("Ethical Approval"))))
+						{
+							//System.out.println("secTitle==> "+secTitle+"   sectionCount"+sectionCount);
+							if (sectionCount==1)
+								{
+									sectionContents.append("\r\n\\section{");
+									tableContents+="\r\n\\item ";
+									head1=true;
+								}
+								else if (sectionCount==2)
+								{
+									sectionContents.append("\r\n\\subsection{");
+									tableContents+="\r\n\\item{\\hskip18pt}";
+								}
+								else if (sectionCount==3)
+								{
+									sectionContents.append("\r\n\\subsubsection{");
+									tableContents+="\r\n\\item{\\hskip43pt}";
+								}
+								else if (sectionCount==4)
+									sectionContents.append("\r\n\\paragraph{");
+								else if (sectionCount==5)
+									sectionContents.append("\r\n\\subparagraph{");
+								else if (sectionCount==6)
+									sectionContents.append("\r\n\\subsubparagraph{");
+//to be defined			else if (sectionCount==7)
+//									sectionContents.append("\r\n\r\n\\subsubparagraph{");
+//								else if (sectionCount==8)
+//									sectionContents.append("\r\n\r\n\\subsubsubparagraph{");
+				
+
+								if(secId.length()>0)
+									sectionContents.append(xmlObj.getHypertarget(secId));
+								secId    = "";
+								if(secNo.length()>0)
+								{
+									sectionContents.append("\\Secno{"+secNo+"}");
+										if(sectionCount<4)
+										tableContents+=secNo+".";
+								}
+								sectionContents.append(secTitle+"}");
+								//System.out.println("sectionContents==> "+sectionContents);
+								//System.in.read();
+						}
+//*********************************************************************************************
+						else
+						{
+							//System.out.println("secTitle====>"+secTitle);
+							/**
+							*Date : 10/01/2007
+							*Added: By Ravi
+							*Change: Point : If Exam or Que tag has section title below changes will appear in tex file
+							*Change Request By :TPMS
+							*/
+							if(((Tag.equals("</CE:EXAM-QUESTIONS>")) || (Tag.equals("</CE:EXAM-ANSWERS>")))&& sectionCount==0)
+							{
+								sectionContents.append("\\SecTitle{"+secTitle+"}");
+							}
+							else
+							{
+								//if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&XT.modelStyle.equalsIgnoreCase("-MODEFrench") && firstSection==true)
+								//{//26/02/2010
+								if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base")||HeadGroup.artDochead.equalsIgnoreCase("Technical point")||HeadGroup.artDochead.equalsIgnoreCase("Basic maneuver")||HeadGroup.artDochead.equalsIgnoreCase("Surgical technique"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("JCHIR")||xmlObj.jid.equalsIgnoreCase("JCHIRV")||xmlObj.jid.equalsIgnoreCase("JVS"))&&(isViewRole==false)){
+									if(secNo.length()>0)
+									{
+										//System.out.println(":::: secTitle :: "+secTitle);
+										Tsec+=""+secTitle+"}";
+									}
+									else
+									sectionContents.append(secTitle+"}");
+									//ModleBySevtion.append();
+								}
+								else
+								{
+									if((HeadGroup.artDochead.equalsIgnoreCase("Student corner"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("GCB"))&&(xmlObj.jid.equalsIgnoreCase("CLINRE"))&&(xmlObj.jid.equalsIgnoreCase("CLIREX"))){
+										ModleBySevtion.append(secTitle+"}");
+										ModleByGCB.append(secTitle+"}");
+										//sectionContents.append(secTitle+"}");
+										//System.out.println("2 ModleBySevtion "+ModleBySevtion);
+									}else//15-06-2010
+									{
+										//sectionContents.append(secTitle+"}");//Updated on 11-05-2015 for TOC auto pagerange
+										if (sectionCount<=3){
+											if(xmlObj.pit.equalsIgnoreCase("REV")){
+												sectionContents.append(secTitle+"}\\label{PL"+planref+"}");
+											}else{
+												sectionContents.append(secTitle+"}");
+											}
+										}else{
+											sectionContents.append(secTitle+"}");
+										}
+									}
+								}
+								//System.out.println("111111111111111111111"+ModleBySevtion);
+							}
+							
+						}
+							
+						if(xmlObj.jid.equalsIgnoreCase("JSAMS") && (TempDiffsecTitle.equalsIgnoreCase("Practical implications") || TempDiffsecTitle.equalsIgnoreCase("Practical applications")))
+						{
+							if(sectionContents.toString().toLowerCase().lastIndexOf("\\section{practical implications") != -1)
+								sectionContents.insert(sectionContents.toString().toLowerCase().lastIndexOf("\\section{practical implications"),"\\begin{SectionBox}\r\n");
+							else if(sectionContents.toString().toLowerCase().lastIndexOf("\\subsection{practical implications") != -1)
+								sectionContents.insert(sectionContents.toString().toLowerCase().lastIndexOf("\\subsection{practical implications"),"\\begin{SectionBox}\r\n");
+							else if(sectionContents.toString().toLowerCase().lastIndexOf("\\section{practical applications") != -1)
+								sectionContents.insert(sectionContents.toString().toLowerCase().lastIndexOf("\\section{practical applications"),"\\begin{SectionBox}\r\n");
+							else if(sectionContents.toString().toLowerCase().lastIndexOf("\\subsection{practical applications") != -1)
+								sectionContents.insert(sectionContents.toString().toLowerCase().lastIndexOf("\\subsection{practical applications"),"\\begin{SectionBox}\r\n");
+
+						}
+						//Bhavesh on 16/08/06
+						/*if(xmlObj.jid.equalsIgnoreCase("TRSTMH") && (secTitle.toLowerCase().startsWith("conflicts of interest") || secTitle.toLowerCase().startsWith("conflict of interest")))
+						{
+							sectionContents.append("\\conflictspace");
+							sectionContents.insert(sectionContents.toString().lastIndexOf("\\section{") + "\\section{".length(), "\\conflictfont ");
+						}*///abhay 23/09/2006
+						if(xmlObj.jid.equalsIgnoreCase("YDLD") && (TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") || TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")))
+						{
+							//System.out.println(sectionContents.toString());
+
+							//sectionContents.insert(sectionContents.toString().lastIndexOf("}") + "}".length(), "\\conflictspace");
+							sectionContents.delete(sectionContents.length()-1, sectionContents.length());
+							sectionContents.append("\\conflictspace}");
+							
+						}
+						
+						if(sectionCount<4)
+						{
+							if(secTitle.equalsIgnoreCase("Conflict of interest")||secTitle.equalsIgnoreCase("Conflicts of interests")||secTitle.equalsIgnoreCase("Conflict of interests")||secTitle.equalsIgnoreCase("Conflicts of interest")||secTitle.equalsIgnoreCase("Fundings")||secTitle.equalsIgnoreCase("Funding")||secTitle.equalsIgnoreCase("Reviewers")||secTitle.equalsIgnoreCase("Reviewer")){
+								//tableContents=tableContents.trim()+"{\\hskip18pt}"+secTitle+"\\dotfill\\quad 00";//Updated on 11-05-2015 for TOC auto pagerange
+								tableContents=tableContents.trim()+"{\\hskip18pt}"+secTitle+"\\dotfill\\planref{PL"+planref+"}";
+								planref++;
+							}else{
+								//tableContents+="{\\hskip11pt}"+secTitle+"\\dotfill\\quad 00";
+								if(!isextended){
+									tableContents+="{\\hskip11pt}"+secTitle+"\\dotfill\\planref{PL"+planref+"}";
+									planref++;
+									//System.out.println("TTTTTTTTTTTTTOOOOOOOOOOOOOOOCCCCCCCCCCCCCCC111111111111111111");
+								}else{
+									//System.out.println("TTTTTTTTTTTTTOOOOOOOOOOOOOOOCCCCCCCCCCCCCCC222222222222222222");
+								}
+							}
+						}
+
+						if(head1==true && XMLObjects.upperCaseSecJid.contains((Object)xmlObj.jid))
+						{
+							//sectionContents.append("\r\n\\addbookmark"+((String)xmlObj.bkmList.get(xmlObj.bkmCount++)).toUpperCase());
+							//head1=false;
+							//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString().toUpperCase();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													
+													//System.out.println("addbookmark     :::::::"+secNo);
+													
+												sectionContents.append("\r\n\\addbookmark"+addbookmark);
+													head1=false;
+												//*************************************************
+						}
+						else
+						{
+							if(!xmlObj.isTextBox)//abhay
+							{
+								//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));//old
+								//[19/03/2007]
+								//if(xmlObj.jid.equalsIgnoreCase("TRSTMH") && (secTitle.toLowerCase().startsWith("conflicts of interest") || secTitle.toLowerCase().startsWith("conflict of interest")  || (secTitle.indexOf("Funding") != -1)||  (secTitle.indexOf("Ethical clearance")!= -1)))
+						   /*
+					 		* Added By Arvind [30_03_2007]
+					 		* Change Request By: Vivek
+					 		* Change Point : As per the new stylesheet of TRSTMH, we need toset "authors' contributions",  
+								    		 any "disclaimers" present, and "acknowledgement" sections also in 
+										     the same style as Funding, Conflict of interest, Ethical approval..
+    				 		*/
+							
+							if((xmlObj.jid.equalsIgnoreCase("TRSTMH")||xmlObj.jid.equals("INHE") )&& (TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") || TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")  || (TempDiffsecTitle.startsWith("Funding")) || (TempDiffsecTitle.startsWith("funding")) ||  (TempDiffsecTitle.startsWith("Ethical Approval"))||  (TempDiffsecTitle.toLowerCase().startsWith("ethics approval"))|| (TempDiffsecTitle.toLowerCase().startsWith("ethical clearance"))||  (TempDiffsecTitle.startsWith("Ethical approval"))||  (TempDiffsecTitle.startsWith("ethical approval"))||(TempDiffsecTitle.toLowerCase().startsWith("competing interests"))))
+							{
+								//	System.out.println("2-------222");
+									if(secNo.length()==0)
+									{
+									//	sbr.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+									//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													
+												sbr.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+									
+									}
+									else
+									{
+										//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+										//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													System.out.println("addbookmark    ::::::"+addbookmark);
+												sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+										
+									}
+								}
+									/*
+					 				 * Added By Arvind [31_03_2007]
+									 * Change Request By: Vivek
+									 * Change Point : As per the new stylesheet of TRSTMH, we need toset "authors' contributions",  
+									  any "disclaimers" present, and "acknowledgement" sections also in 
+									  the same style as Funding, Conflict of interest, Ethical approval..
+    								 */
+				
+								else if((xmlObj.jid.equalsIgnoreCase("TRSTMH")||xmlObj.jid.equals("INHE")) &&((TempDiffsecTitle.toLowerCase().startsWith("authors' contributions")||(TempDiffsecTitle.toLowerCase().startsWith("author contributions") ) )||(TempDiffsecTitle.toLowerCase().startsWith("disclaimers") )||(TempDiffsecTitle.startsWith("Disclaimer") )||(TempDiffsecTitle.toLowerCase().startsWith("acknowledgement") )||(TempDiffsecTitle.startsWith("Acknowledgements") )||(TempDiffsecTitle.toLowerCase().startsWith("authors' disclaimer"))||(TempDiffsecTitle.toLowerCase().startsWith("author's disclaimer"))||(TempDiffsecTitle.toLowerCase().startsWith("authors disclaimer"))))
+								{
+								//	System.out.println("555555-----555");
+									if(secNo.length()==0)
+									{  //sbr-sectioncontents
+										//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+										//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													//System.out.println("::addbookmark::>> "+addbookmark);
+												sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+									}
+									else
+									{
+										//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+										//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													 System.out.println("addbookmark   ::::"+addbookmark);
+												sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+
+									}
+								}
+								/**
+								*Added By : Ravi [24/03/2007]
+								* Change Point : Journal JJBE move the section below the acknowledgment
+								* Change Request : Vivek
+								*/
+								else if((xmlObj.jid.equalsIgnoreCase("JJBE")||(xmlObj.jid.equalsIgnoreCase("GAIPOS"))||(xmlObj.jid.equalsIgnoreCase("YSEIZ"))) && (TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")))
+								{
+										if(secNo.length()==0)
+										{
+											//sbr.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													//System.out.println("::addbookmark::>> "+addbookmark);
+												sbr.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+										}
+										else
+										{
+											//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+											/**
+											 *Added By : Ravi 
+											 *Date : 21/05/2007
+											 *Change Point : Deleting Query Tag.
+											 **/
+											 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+												StringBuffer q1= new StringBuffer(addbookmark);
+												//System.out.println("q1==> "+q1);
+												int in= 0;
+												int ot=0;
+												while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													System.out.println("addbookmark    :::::"+addbookmark);
+											sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+											//*************************************************
+										}
+								}
+								else if((xmlObj.jid.equalsIgnoreCase("CIRCIR")) && ((TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")) || (TempDiffsecTitle.toLowerCase().startsWith("conflicto de intereses"))))
+								{
+										if(secNo.length()==0)
+										{
+											//sbr.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													//System.out.println("::addbookmark::>> "+addbookmark);
+												sbr.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+										}
+										else
+										{
+											//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+											/**
+											 *Added By : Ravi 
+											 *Date : 21/05/2007
+											 *Change Point : Deleting Query Tag.
+											 **/
+											 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+												StringBuffer q1= new StringBuffer(addbookmark);
+												//System.out.println("q1==> "+q1);
+												int in= 0;
+												int ot=0;
+												while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													System.out.println("addbookmark    :::::"+addbookmark);
+											sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+											//*************************************************
+										}
+								}
+								else if((xmlObj.jid.equalsIgnoreCase("IHE")) && (TempDiffsecTitle.toLowerCase().startsWith("fuentes")))
+								{
+										if(secNo.length()==0)
+										{
+											//sbr.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+												if(sectionCount==1)
+													sbr.append("\r\n\\addbookmark"+addbookmark);
+												else
+													sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+										}
+										else
+										{
+											//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+											/**
+											 *Added By : Ravi 
+											 *Date : 21/05/2007
+											 *Change Point : Deleting Query Tag.
+											 **/
+											 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+												StringBuffer q1= new StringBuffer(addbookmark);
+												//System.out.println("q1==> "+q1);
+												int in= 0;
+												int ot=0;
+												while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													System.out.println("222addbookmark    :::::"+addbookmark);
+											sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+											//*************************************************
+										}
+								}
+								else if((xmlObj.jid.equalsIgnoreCase("IHE")) && (!TempDiffsecTitle.toLowerCase().startsWith("fuentes"))&&isFuentes==true)
+								{
+										if(secNo.length()==0)
+										{
+											//sbr.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+												sbr.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+										}
+										else
+										{
+											//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+											/**
+											 *Added By : Ravi 
+											 *Date : 21/05/2007
+											 *Change Point : Deleting Query Tag.
+											 **/
+											 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+												StringBuffer q1= new StringBuffer(addbookmark);
+												//System.out.println("q1==> "+q1);
+												int in= 0;
+												int ot=0;
+												while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													System.out.println("222addbookmark    :::::"+addbookmark);
+											sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+											//*************************************************
+										}
+								}
+								else if(modelDSec && ((TempDiffsecTitle.toLowerCase().indexOf("claration d'int")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("disclosure of interest")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("d{\\aseacute}claration de liens d'int{\\aseacute}r{\\asehat}ts")!=-1)))
+								{
+										if(secNo.length()==0)
+										{
+											//sbr.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+												/**
+												 *Added By : Ravi 
+												 *Date : 21/05/2007
+												 *Change Point : Deleting Query Tag.
+												 **/
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+												if(sectionCount==1)
+													sbr.append("\r\n\\addbookmark"+addbookmark);
+												else
+													sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+										}
+										else
+										{
+											//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+											//*****************[New Requirement]***************
+											/**
+											 *Added By : Ravi 
+											 *Date : 21/05/2007
+											 *Change Point : Deleting Query Tag.
+											 **/
+											 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+												StringBuffer q1= new StringBuffer(addbookmark);
+												//System.out.println("q1==> "+q1);
+												int in= 0;
+												int ot=0;
+												while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													System.out.println("222addbookmark    :::::"+addbookmark);
+											sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+											//*************************************************
+										}
+								}
+								/**
+								*Added By : Ravi [27/02/2009]
+								* Change Point : Journal DRUPOL move the section below the acknowledgment
+								* Change Request : Vivek
+								*/
+								else if(xmlObj.jid.equalsIgnoreCase("DRUPOL") && ((TempDiffsecTitle.toLowerCase().startsWith("conflict of interest"))||(TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest"))))
+								{
+										if(secNo.length()==0)
+										{
+											
+												 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+													StringBuffer q1= new StringBuffer(addbookmark);
+													//System.out.println("q1==> "+q1);
+													int in= 0;
+													int ot=0;
+													while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													//System.out.println("::addbookmark::>> "+addbookmark);
+												sbr.append("\r\n\\addbookmark"+addbookmark);
+
+												//*************************************************
+										}
+										else
+										{
+											
+											 String addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+												StringBuffer q1= new StringBuffer(addbookmark);
+												//System.out.println("q1==> "+q1);
+												int in= 0;
+												int ot=0;
+												while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													System.out.println("addbookmark    :::::"+addbookmark);
+											sectionContents.append("\r\n\\addbookmark"+addbookmark);
+
+											//*************************************************
+										}
+								}
+								else
+								{
+										//sectionContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));//old
+										//*****************[New Requirement]***************
+										/**
+										 *Added By : Ravi 
+										 *Date : 21/05/2007
+										 *Change Point : Deleting Query Tag.
+										 **/
+										String addbookmark="";
+										if(xmlObj.bkmList.size()>xmlObj.bkmCount)//14-10-2011
+										 addbookmark=xmlObj.bkmList.get(xmlObj.bkmCount++).toString();
+										  //System.out.println("xmlObj.bkmList.Size()::"+xmlObj.bkmList.size());
+										   //System.out.println("xmlObj.bkmCount::"+xmlObj.bkmCount);
+											StringBuffer q1= new StringBuffer(addbookmark);
+											//System.out.println("q1==> "+q1);
+											int in= 0;
+											int ot=0;
+											while(in != -1)
+													{
+														in= q1.indexOf("\\protect\\qtoa{",in);
+														
+														if(in != -1)
+														{
+															ot=q1.indexOf("}",in+1)	;
+															if(ot != -1)
+															{
+																q1.delete(in,ot+1);
+															}
+															//addbookmark=q1.toString();
+														}
+													}
+													/*
+													  Requirement : web pdf 6.2 implimentation new requirement label will show in bookmark
+													  Date	      : 15-04-2011	
+													  Modify By   : Ravi Shekhar
+													 */
+													if(secNo.length()>0)
+													{
+														if(secNo.indexOf("ThomsonDiff",0)!=-1){
+															int n=0;
+															int s=0;
+															n=secNo.indexOf("ThomsonDiff",0);
+															if(n!=-1)
+															{
+																s=secNo.indexOf("ThomsonDiffCloseBrace",n);
+																if(s!=-1)
+																{
+																	StringBuffer sh=new StringBuffer(secNo);
+																	sh=sh.delete(n,s+"ThomsonDiffCloseBrace".length());
+																	secNo=sh.toString();
+																}
+															}
+															
+														}
+														if(q1.indexOf("}{",0)!=-1)
+														{
+															q1=q1.insert(q1.indexOf("}{",0)+2,secNo+" ");
+														}
+													}
+													addbookmark=q1.toString();
+													//System.out.println("addbookmark : "+addbookmark);
+													//System.in.read();
+													if(addbookmark.indexOf("ThomsonDiff",0)!=-1){
+									addbookmark=addbookmark.replaceAll("ThomsonDiff\\_ThomsonDiffOpenBrace([0-9]+)ThomsonDiffCloseBrace","");
+									}
+									//System.out.println("111addbookmark : "+addbookmark);
+										//[25/05/2007]
+										//ANTAGE
+										if(xmlObj.jid.equalsIgnoreCase("ANTAGE") &&((TempDiffsecTitle.startsWith("Competing interests") )||(TempDiffsecTitle.toLowerCase().startsWith("competing interests") ) ||(TempDiffsecTitle.startsWith("Funding")) || (TempDiffsecTitle.startsWith("funding")) || (TempDiffsecTitle.startsWith("Ethical approval"))||(TempDiffsecTitle.startsWith("ethical approval"))||(TempDiffsecTitle.startsWith("Ethical Approval"))))
+										{
+											if(secNo.length()==0)
+											{
+												sbr.append("\r\n\\addbookmark"+addbookmark);
+											}
+											else
+											{
+												sectionContents.append("\r\n\\addbookmark"+addbookmark);
+											}
+										}
+										else
+										{
+											//sectionContents.append("\r\n\\addbookmark"+addbookmark);
+											//System.out.println("addbookmark : "+addbookmark);
+											if(secNo.length()==0)
+											{
+												if((HeadGroup.artDochead.equalsIgnoreCase("Student corner"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("GCB"))&&(xmlObj.jid.equalsIgnoreCase("CLINRE"))&&(xmlObj.jid.equalsIgnoreCase("CLIREX"))){
+													ModleBySevtion.append("\r\n\\addbookmark"+addbookmark+"\r\n");
+													ModleByGCB.append("\r\n\\addbookmark"+addbookmark+"\r\n");
+													//sectionContents.append("\r\n\\addbookmark"+addbookmark);
+													//System.out.println("2 ModleBySevtion "+ModleBySevtion);
+												}else//15-06-2010
+													sectionContents.append("\r\n\\addbookmark"+addbookmark);
+											}
+											else
+											{
+												//sectionContents.append("\r\n\\addbookmark"+addbookmark);//blocked
+												if(firstSection==true)
+												{
+													Tsec+="\r\n\\addbookmark"+addbookmark+"\r\n";
+												}
+												else
+												{
+													if((HeadGroup.artDochead.equalsIgnoreCase("Student corner"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("GCB"))&&(xmlObj.jid.equalsIgnoreCase("CLINRE"))&&(xmlObj.jid.equalsIgnoreCase("CLIREX"))){
+														ModleBySevtion.append("\r\n\\addbookmark"+addbookmark+"\r\n");
+														ModleByGCB.append("\r\n\\addbookmark"+addbookmark+"\r\n");
+														//sectionContents.append("\r\n\\addbookmark"+addbookmark);
+														//System.out.println("2 ModleBySevtion "+ModleBySevtion);
+													}else//15-06-2010
+														sectionContents.append("\r\n\\addbookmark"+addbookmark);
+												}
+												
+												//System.out.println("2 sectionContents : "+sectionContents);
+												//System.in.read();
+											}
+										}
+											
+											
+										
+
+								//*************************************************
+									
+									
+								}
+								//System.out.println("sectionContents 2 "+sectionContents);
+								//System.in.read();
+							}
+						}
+						//abhay 23/09/2006
+						if(xmlObj.jid.equalsIgnoreCase("YDLD") && (TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") || TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")))
+						{
+							sectionContents.append("\r\n\\noindent ");
+						}
+
+					}
+					else
+					{
+						if((HeadGroup.artDochead.equalsIgnoreCase("Student corner"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("GCB"))&&(xmlObj.jid.equalsIgnoreCase("CLINRE"))&&(xmlObj.jid.equalsIgnoreCase("CLIREX"))){
+							ModleBySevtion.append(secTitle+"}");
+							ModleByGCB.append(secTitle+"}");
+							//sectionContents.append(secTitle+"}");
+							//System.out.println("3 ModleBySevtion "+ModleBySevtion);
+						}else//15-06-2010
+						sectionContents.append(secTitle+"}");
+						if(sectionCount<4)
+							//tableContents+="{\\hskip11pt}"+secTitle+"\\dotfill\\quad 00";//Updated on 11-05-2015 for TOC auto pagerange
+							tableContents+="{\\hskip11pt}"+secTitle+"\\dotfill\\planref{PL"+planref+"}";
+							planref++;
+					}
+
+			///////////////////////////////EXTRANET UPDATE//////////////////////////////////////////////////
+//					System.out.println("SMALL SECTION :: "+secTitle);
+					if(secTitle.indexOf("-ssmmaallll-ffoonntt-",0)!=-1)
+					{
+						secTitle=secTitle.replaceAll("-ssmmaallll-ffoonntt-","");
+						isSmallFont=true;
+						System.out.println("smallfont found....");
+					}else if(secTitle.indexOf("\\hbox{-}ssmmaallll\\hbox{-}ffoonntt\\hbox{-}",0)!=-1)
+					{
+						secTitle=secTitle.replaceAll("\\\\hbox\\{-\\}ssmmaallll\\\\hbox\\{-\\}ffoonntt\\\\hbox\\{-\\}","");
+						isSmallFont=true;
+						System.out.println("smallfont found....");
+					}
+
+					if(XT.Get_SmallFont_CutOff(xmlObj.jid,xmlObj.aid))
+					{
+						if(isSmallFont)
+						{
+							int t=sectionContents.indexOf("\\begin<SmallFont>");
+							if(t!=-1)
+							{
+								sectionContents=sectionContents.replace(t,t+17,"\\begin{SmallFont}"+"{"+secTitle+"}");
+							}
+						}
+						else
+						{
+							int t=sectionContents.indexOf("\\begin<SmallFont>");
+							if(t!=-1)
+							{
+								sectionContents=sectionContents.replace(t,t+17,"");
+							}
+						}
+					}
+					else
+					{
+						int t=sectionContents.indexOf("\\begin<SmallFont>");
+						if(t!=-1)
+							sectionContents=sectionContents.replace(t,t+17,"\\begin{SmallFont}"+"{"+secTitle+"}");
+					}
+			/////////////////////////////////////////////////////////////////////////////////////////////////		
+
+
+					xmlObj.protectCheck=false;
+				}
+				else if (tag.equals("<CE:PARA>") || tag.startsWith("<CE:PARA")) //04-01-2005
+				{
+					//System.out.println("paraView----------> ");
+					paraNo++;
+					String paraView=xmlObj.getAttributeValue(tag, "VIEW");
+					if(paraView.equals("EXTENDED"))
+						sectionContents.append("\r\n\\begin{extra}");
+					else if(paraView.equals("COMPACT-STANDARD"))
+						sectionContents.append("\r\n\\begin{antiextra}");
+
+					//System.out.println("paraView----------> "+paraView);
+					if (firstP== true)
+					{	//Modify by bhavesh to insert \noindent in starting of body
+						if(paraNo==1);
+						//if((XT.modelStyle.equals("6")||XT.modelStyle.equalsIgnoreCase("6plus") ||XT.jid.equalsIgnoreCase("YBJOM"))&&(XT.sectionNo==1&&XT.bodyflage))
+						if((XT.modelStyle.equals("6")||XT.modelStyle.equalsIgnoreCase("6plus") ||XT.modelStyle.equalsIgnoreCase("-YBJOM"))&&(XT.sectionNo==1&&XT.bodyflage))
+						{
+							//System.out.println(XT.sectionNo+"  bb  ");
+							sectionContents.append("\r\n \\noindent\r\n"+xmlObj.extractData("</CE:PARA>", true));
+							XT.bodyflage=false;
+						}
+						
+						else
+						{
+							//System.out.println(XT.sectionNo+"  cc  ");
+							//sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true));//old
+							//[19/03/2007]
+							//if(xmlObj.jid.equalsIgnoreCase("TRSTMH") && (secTitle.toLowerCase().startsWith("conflicts of interest") || secTitle.toLowerCase().startsWith("conflict of interest")  || (secTitle.indexOf("Funding") != -1)||  (secTitle.indexOf("Ethical clearance")!= -1)))
+						   
+						   /*
+					 		* Added By Arvind [30_03_2007]
+					 		* Change Request By: Vivek
+					 		* Change Point : As per the new stylesheet of TRSTMH, we need toset "authors' contributions",  
+								    		 any "disclaimers" present, and "acknowledgement" sections also in 
+										     the same style as Funding, Conflict of interest, Ethical approval..
+    				 		*/
+//							System.out.println("sectionContents=======>"+sectionContents);
+							//System.out.println("sbr=======>"+sbr);
+							if((xmlObj.jid.equalsIgnoreCase("TRSTMH")||xmlObj.jid.equals("INHE")) && ((TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") )|| (TempDiffsecTitle.toLowerCase().startsWith("conflict of interest"))  || (TempDiffsecTitle.startsWith("Funding")) || (TempDiffsecTitle.startsWith("funding")) ||  (TempDiffsecTitle.startsWith("Ethical Approval")) || (TempDiffsecTitle.toLowerCase().startsWith("ethical clearance"))|| (TempDiffsecTitle.toLowerCase().startsWith("ethics approval"))||  (TempDiffsecTitle.startsWith("Ethical approval"))||  (TempDiffsecTitle.toLowerCase().startsWith("ethical approval"))||  (TempDiffsecTitle.startsWith("ethical approval"))||(TempDiffsecTitle.toLowerCase().startsWith("competing interests"))))
+							{ 
+								//System.out.println("33333333");
+								if(secNo.length()==0)
+									{
+										sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+										//System.out.println("sbr para==> "+sbr);
+									}
+									else
+									{
+										sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+									}
+							} 
+							/*Added By : Ravi [24/03/2007]
+							* Change Point : Journal JJBE move the section below the acknowledgment
+							* Change Request : Vivek
+							*/
+						   else if((xmlObj.jid.equalsIgnoreCase("JJBE")||(xmlObj.jid.equalsIgnoreCase("GAIPOS"))||(xmlObj.jid.equalsIgnoreCase("YSEIZ"))) && ((TempDiffsecTitle.toLowerCase().startsWith("conflict of interest") )))
+							{
+									if(secNo.length()==0)
+									{
+										sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+									}
+									else
+									{
+										sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+									}
+							}
+						   else if((xmlObj.jid.equalsIgnoreCase("CIRCIR")) && ((TempDiffsecTitle.toLowerCase().startsWith("conflict of interest")) || (TempDiffsecTitle.toLowerCase().startsWith("conflicto de intereses"))))
+							{
+									if(secNo.length()==0)
+									{
+										sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+									}
+									else
+									{
+										sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+									}
+							}
+							else
+							{
+									if(xmlObj.jid.equalsIgnoreCase("ANTAGE") &&((TempDiffsecTitle.startsWith("Competing interests") )||(TempDiffsecTitle.toLowerCase().startsWith("competing interests") ) ||(TempDiffsecTitle.startsWith("Funding")) || (TempDiffsecTitle.startsWith("funding")) || (TempDiffsecTitle.startsWith("Ethical approval"))||(TempDiffsecTitle.startsWith("ethical approval"))||(TempDiffsecTitle.startsWith("Ethical Approval"))))
+									{
+										if(secNo.length()==0)
+										{
+											sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+										}
+										else
+										{
+											sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+										}
+										
+									}
+									/*
+									* Added By Arvind [30_03_2007]
+									* Change Request By: Vivek
+									* Change Point : As per the new stylesheet of TRSTMH, we need toset "authors' contributions",  
+													 any "disclaimers" present, and "acknowledgement" sections also in 
+													 the same style as Funding, Conflict of interest, Ethical approval..
+									*/									
+									else if(xmlObj.jid.equalsIgnoreCase("DRUPOL") && ((TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") )|| (TempDiffsecTitle.toLowerCase().startsWith("conflict of interest"))))
+									{ 
+										//System.out.println("33333333");
+										if(secNo.length()==0)
+											{
+												sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+//												System.out.println("sbr para==> "+sbr);
+											}
+											else
+											{
+												sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+											}
+									} 
+									else if(xmlObj.jid.equalsIgnoreCase("IHE") && (TempDiffsecTitle.toLowerCase().startsWith("fuentes") ))
+									{ 
+										//System.out.println("33333333");
+										if(secNo.length()==0)
+											{
+												if(sectionCount==1)
+													sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												else
+													sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												//System.out.println("sbr para==> "+sbr);
+											}
+											else
+											{
+												sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+											}
+									}
+									else if(modelDSec && ((TempDiffsecTitle.toLowerCase().indexOf("claration d'int")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("disclosure of interest")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("d{\\aseacute}claration de liens d'int{\\aseacute}r{\\asehat}ts")!=-1)))
+									{ 
+										//System.out.println("33333333");
+										if(secNo.length()==0)
+											{
+												if(sectionCount==1)
+												{
+													sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												}													
+												else
+												{
+													sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												}
+												//System.out.println("sbr para==> "+sbr);
+											}
+											else
+											{
+												sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+											}
+									}
+									else if(xmlObj.jid.equalsIgnoreCase("IHE") && (!TempDiffsecTitle.toLowerCase().startsWith("fuentes") ))
+									{ 
+										//System.out.println("33333333");
+										if(secNo.length()==0)
+											{
+												
+													if(isFuentes)
+														sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+													else
+														sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												
+												//System.out.println("sbr para==> "+sbr);
+											}
+											else
+											{
+												sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+											}
+									} 
+									else
+									{
+										//if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&XT.modelStyle.equalsIgnoreCase("-MODEFrench")&& firstSection==true)//26/02/2010
+										if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base")||HeadGroup.artDochead.equalsIgnoreCase("Technical point")||HeadGroup.artDochead.equalsIgnoreCase("Basic maneuver")||HeadGroup.artDochead.equalsIgnoreCase("Surgical technique"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("JCHIR")||xmlObj.jid.equalsIgnoreCase("JCHIRV")||xmlObj.jid.equalsIgnoreCase("JVS"))&&(isViewRole==false))
+										{
+											
+											if(secNo.length()>0){
+											 SevVal+=xmlObj.extractData("</CE:PARA>", true)+"\r\n";
+											 Filgval=xmlObj.figureValue;
+											}else{
+												
+												sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true));
+											}
+											
+										}else{
+										if((HeadGroup.artDochead.equalsIgnoreCase("Student corner"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("GCB"))&&(xmlObj.jid.equalsIgnoreCase("CLINRE"))&&(xmlObj.jid.equalsIgnoreCase("CLIREX")))//15-06-2010
+												{
+													SevVal+=xmlObj.extractData("</CE:PARA>", true)+"\r\n";
+													Filgval=xmlObj.figureValue;
+													ModleByGCB.append(SevVal);
+													ModleByGCB.append(Filgval);
+													//sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true));
+												//System.out.println("SevVal------------------------------------------"+SevVal);
+												//System.out.println("Filgval------------------------------------------"+Filgval);
+												}
+												else
+												{
+													sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true));	
+												//System.out.println("------------------------------------------"+sectionContents);	
+												}
+										}
+									}
+								}
+							}
+					}
+					else
+					{
+						//sectionContents.append("\r\n\r\n"+xmlObj.extractData("</CE:PARA>", true));
+						//if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&XT.modelStyle.equalsIgnoreCase("-MODEFrench")&& firstSection==true)//26/02/2010
+						if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")|| HeadGroup.artDochead.equalsIgnoreCase("Point technique")|| HeadGroup.artDochead.equalsIgnoreCase("Geste de base")||HeadGroup.artDochead.equalsIgnoreCase("Technical point")||HeadGroup.artDochead.equalsIgnoreCase("Basic maneuver")||HeadGroup.artDochead.equalsIgnoreCase("Surgical technique"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("JCHIR")||xmlObj.jid.equalsIgnoreCase("JCHIRV")||xmlObj.jid.equalsIgnoreCase("JVS"))&&(isViewRole==false))
+							{
+							if(secNo.length()>0){
+							SevVal+="\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n";
+							Filgval=xmlObj.figureValue;
+							}else
+								{
+									
+									sectionContents.append("\r\n\r\n"+xmlObj.extractData("</CE:PARA>", true));
+								}
+							
+						}
+						else
+						{
+							if((HeadGroup.artDochead.equalsIgnoreCase("Student corner"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("GCB"))&&(xmlObj.jid.equalsIgnoreCase("CLINRE"))&&(xmlObj.jid.equalsIgnoreCase("CLIREX")))//15-06-2010
+								{
+									SevVal+=xmlObj.extractData("</CE:PARA>", true)+"\r\n";
+									Filgval=xmlObj.figureValue;
+									ModleByGCB.append(SevVal);
+									ModleByGCB.append(Filgval);
+									//sectionContents.append("\r\n\r\n"+xmlObj.extractData("</CE:PARA>", true));
+								}
+								else
+								{
+									//System.out.println("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"+TempDiffsecTitle+" "+secNo.length());
+									if((xmlObj.jid.equalsIgnoreCase("TRSTMH")||xmlObj.jid.equals("INHE")) && ((TempDiffsecTitle.toLowerCase().startsWith("conflicts of interest") )|| (TempDiffsecTitle.toLowerCase().startsWith("conflict of interest"))  || (TempDiffsecTitle.startsWith("Funding")) || (TempDiffsecTitle.startsWith("funding")) ||  (TempDiffsecTitle.startsWith("Ethical Approval")) || (TempDiffsecTitle.toLowerCase().startsWith("ethical clearance"))||  (TempDiffsecTitle.startsWith("Ethical approval"))||  (TempDiffsecTitle.toLowerCase().startsWith("ethics approval"))||  (TempDiffsecTitle.startsWith("ethical approval"))||(TempDiffsecTitle.toLowerCase().startsWith("competing interests"))))
+									{ 
+										//System.out.println("33333333");
+										if(secNo.length()==0)
+											{
+												sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												//System.out.println("sbr para==> "+sbr);
+											}
+											else
+											{
+												sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+											}
+									}
+									else if(xmlObj.jid.equalsIgnoreCase("IHE") && (TempDiffsecTitle.toLowerCase().startsWith("fuentes")))
+									{ 
+										//System.out.println("33333333");
+										if(secNo.length()==0)
+											{
+												if(sectionCount==1)
+													sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												else
+													sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												//System.out.println("sbr para==> "+sbr);
+											}
+											else
+											{
+												sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+											}
+									}
+									else if(xmlObj.jid.equalsIgnoreCase("IHE") && (!TempDiffsecTitle.toLowerCase().startsWith("fuentes") ))
+									{ 
+										//System.out.println("33333333");
+										if(secNo.length()==0)
+											{
+												if(isFuentes)
+													sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												else
+													sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+												//System.out.println("sbr para==> "+sbr);
+											}
+											else
+											{
+												sectionContents.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+											}
+									}
+									//18-10-2015
+									else if(modelDSec && ((TempDiffsecTitle.toLowerCase().indexOf("claration d'int")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("disclosure of interest")!=-1) || (TempDiffsecTitle.toLowerCase().indexOf("d{\\aseacute}claration de liens d'int{\\aseacute}r{\\asehat}ts")!=-1)))
+									{
+										sbr.append("\r\n"+xmlObj.extractData("</CE:PARA>", true)+"\r\n");
+									}
+									else
+									sectionContents.append("\r\n\r\n"+xmlObj.extractData("</CE:PARA>", true));
+									//System.out.println("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+								}
+						}
+						
+						
+					}
+					firstP= false;
+					
+					if(paraView.equals("EXTENDED"))
+						sectionContents.append("\r\n\\end{extra}");
+					else if(paraView.equals("COMPACT-STANDARD"))
+						sectionContents.append("\r\n\\end{antiextra}");
+				}
+				else if (tag.equals("</CE:SECTION>"))
+				{
+					if(xmlObj.jid.equalsIgnoreCase("JSAMS") && (TempDiffsecTitle.equalsIgnoreCase("Practical implications") || TempDiffsecTitle.equalsIgnoreCase("Practical applications")))
+					{
+						sectionContents.append("\r\n\\end{SectionBox}\r\n");
+					}
+					
+					if(xmlObj.jid.equalsIgnoreCase("JFD") && (TempDiffsecTitle.equalsIgnoreCase("CONTINUING EDUCATION")))
+					{
+						if(sectionContents.toString().toUpperCase().lastIndexOf("\r\n\\SECTION{CONTINUING EDUCATION}") != -1)
+						{
+							con_edu += sectionContents.substring(sectionContents.toString().toUpperCase().lastIndexOf("\r\n\\SECTION{CONTINUING EDUCATION}"), sectionContents.length());
+							sectionContents.replace(sectionContents.toString().toUpperCase().lastIndexOf("\\SECTION{CONTINUING EDUCATION}"), sectionContents.length(), "");
+						}
+					}
+
+					if(hashView.contains(sectionCount+""))
+					{
+						///sectionContents.append("\r\n\\end{materialsandmethods}");
+						///////////////////////////////EXTRANET UPDATE//////////////
+
+						//sectionContents.append("\r\n\\end{SmallFont}"); //15-01-2005
+						if(XT.Get_SmallFont_CutOff(xmlObj.jid,xmlObj.aid))
+						{
+							if(isSmallFont==true)
+							{
+								System.out.println("isSmallFont==>"+isSmallFont);
+								sectionContents.append("\r\n\\end{SmallFont}"); //15-01-2005
+								isSmallFont=false;
+							}
+						}
+						else
+						{
+							sectionContents.append("\r\n\\end{SmallFont}"); //15-01-2005
+						}
+
+						if(sectionContents.indexOf("-ssmmaallll-ffoonntt-",0)!=-1)
+						{
+							int t=sectionContents.indexOf("-ssmmaallll-ffoonntt-");
+							if(t!=-1)
+							{
+								sectionContents=sectionContents.replace(t,t+21,"");
+							}
+						}else if(sectionContents.indexOf("\\hbox{-}ssmmaallll\\hbox{-}ffoonntt\\hbox{-}",0)!=-1)
+						{
+							int t=sectionContents.indexOf("\\hbox{-}ssmmaallll\\hbox{-}ffoonntt\\hbox{-}");
+							if(t!=-1)
+							{
+								sectionContents=sectionContents.replace(t,t+42,"");
+							}
+						}
+
+						////////////////////////////////////////////////////////////
+						
+						hashView.remove(sectionCount+"");
+					}
+					else
+					{
+						if(sectionContents.indexOf("-ssmmaallll-ffoonntt-",0)!=-1)
+						{
+							int t=sectionContents.indexOf("-ssmmaallll-ffoonntt-");
+							if(t!=-1)
+							{
+								sectionContents=sectionContents.replace(t,t+21,"");
+							}
+						}else if(sectionContents.indexOf("\\hbox{-}ssmmaallll\\hbox{-}ffoonntt\\hbox{-}",0)!=-1)
+						{
+							int t=sectionContents.indexOf("\\hbox{-}ssmmaallll\\hbox{-}ffoonntt\\hbox{-}");
+							if(t!=-1)
+							{
+								sectionContents=sectionContents.replace(t,t+42,"");
+							}
+						}
+
+					}
+					if(compactView.contains(sectionCount+""))
+					{
+						//System.out.println("compactView-->"+compactView);
+						sectionContents.append("\r\n\\end{antiextra}"); //15-01-2005
+						//System.out.println("sectionContents-->"+sectionContents);
+						compactView.remove(sectionCount+"");
+					}
+					///System.out.println("MARK-->"+mark+"<<>>"+sectionCount);
+					///System.out.println("SECVIEW-->"+secView);
+					/*if(secView==true && mark==sectionCount && mark==1)
+					{
+						sectionContents.append("\r\n\\end{extra}");
+						secView=false;
+						mark=-1;
+					}*/
+					if(sectionCount !=0)
+					{
+						sectionCount--;//20/06/2009
+						AENJ_sectionCount++;//24-09-2010
+					}
+					//break;
+					//System.out.println("MARK-->"+mark+"<<>>"+sectionCount);
+					//System.out.println("SECVIEW-->"+secView);
+					if(secView==true && mark==sectionCount)
+					{
+						sectionContents.append("\r\n\\end{extra}");
+						secView=false;
+					}
+										
+					if(firstSection==true)
+					{
+						if(secNo.length()>0){
+							
+						ModleBySevtion.append(Filgval);
+						ModleBySevtion.append(Tsec);
+						ModleBySevtion.append(SevVal);
+						Tsec="";
+						xmlObj.figureValue="";
+						SevVal="";
+						Filgval="";
+						ModleBySevtion.append("\\end{sidebox}\r\n\r\n");
+						sectionContents.append(ModleBySevtion.toString());
+						//ModleBySevtion=new StringBuffer();
+						//System.out.println("---------------------"+sectionContents);
+						if(sectionContents.indexOf("\\section{\r\n",0)!=-1)
+							{
+								String t=sectionContents.toString();
+								t=t.replaceAll("\\\\section\\{\r\n","");
+								sectionContents=new StringBuffer(t);
+								//System.out.println("---------------------");
+							}
+						}
+						else if((HeadGroup.artDochead.equalsIgnoreCase("Student corner"))&&xmlObj.pit.equalsIgnoreCase("SCO")&&(xmlObj.jid.equalsIgnoreCase("GCB"))&&(xmlObj.jid.equalsIgnoreCase("CLINRE"))&&(xmlObj.jid.equalsIgnoreCase("CLIREX")))//15-06-2010
+						{
+							//
+							
+
+							
+							int i=ModleBySevtion.indexOf("\\begin{sidebox}{%\r\n",0);
+							ModleBySevtion.insert(i+"\\begin{sidebox}{%\r\n".length(),Filgval);
+							//ModleBySevtion.append(Filgval);
+							ModleBySevtion.append(Tsec);
+							ModleBySevtion.append(SevVal);
+							//System.out.println("Filgval---------------------"+Filgval);
+							//System.out.println("Tsec---------------------"+Tsec);
+							//System.out.println("SevVal---------------------"+SevVal);
+							//System.out.println("\n\nModleBySevtion---------------------"+ModleBySevtion);
+							//System.in.read();
+							if(ModleBySevtion.indexOf("\\AltTextULB{%")!=-1)
+							{
+								ModleByGCB=new StringBuffer();
+								//System.out.println("---------------------"+Filgval);
+								//System.out.println("---------------------"+Tsec);
+								//System.out.println("---------------------"+SevVal);
+								Tsec="";
+								xmlObj.figureValue="";
+								SevVal="";
+								Filgval="";
+								ModleBySevtion.append("\\end{sidebox}\r\n\r\n");
+								//sectionContents=new StringBuffer();
+								sectionContents.append(ModleBySevtion.toString());
+								//ModleBySevtion=new StringBuffer();
+								
+								if(sectionContents.indexOf("\\section{\r\n",0)!=-1)
+									{
+										String t=sectionContents.toString();
+										t=t.replaceAll("\\\\section\\{\r\n","");
+										sectionContents=new StringBuffer(t);
+										//System.out.println("---------------------");
+									}
+						   }
+						   else
+							{
+							    Tsec="";
+								xmlObj.figureValue="";
+								SevVal="";
+								Filgval="";
+							   sectionContents.append(ModleByGCB.toString());
+							   if(sectionContents.indexOf("\\section{\r\n",0)!=-1)
+									{
+										String t=sectionContents.toString();
+										t=t.replaceAll("\\\\section\\{\r\n","");
+										sectionContents=new StringBuffer(t);
+										//System.out.println("---------------------");
+									}
+							   
+							}
+						   
+						}
+						
+					
+					}
+					firstSection=false;
+					ModleBySevtion=new StringBuffer();
+					ModleByGCB=new StringBuffer();//15-06-2010
+				}
+			}
+		}
+		iscompact=false;//30-09-2010
+		/*System.out.println("secNo.length() "+secNo.length());
+		System.in.read();
+		if((HeadGroup.artDochead.equalsIgnoreCase("Technique chirurgicale")&&xmlObj.pit.equalsIgnoreCase("SCO")&&XT.modelStyle.equalsIgnoreCase("-MODEFrench")&& secNo.length()>0)){
+			sectionContents=new StringBuffer(ModleBySevtion.toString());
+				ModleBySevtion=new StringBuffer();
+			//sectionContents.append();
+			System.out.println("sectionContents para==> "+sectionContents);
+			System.in.read();
+		}*/
+		
+		return sectionContents.toString();
+	}
+
+	public String processNomenclature()throws IOException
+	{
+		String tag = "";
+		StringBuffer processedDate= new StringBuffer();
+		String nomenTitle="";
+		boolean descFound= false;
+		while (!tag.equals("</CE:NOMENCLATURE>"))
+		{
+			char ch= (char)xmlObj.fin.read();
+			if (ch=='<')
+			{
+				tag= xmlObj.getTag().toUpperCase();
+				if (tag.startsWith("<CE:DEF-LIST"))
+				{
+					processedDate.append(xmlObj.processDefList());
+				}
+				else if (tag.startsWith("<CE:SECTION-TITLE"))
+				{
+					nomenTitle= xmlObj.extractData("</CE:SECTION-TITLE>", true);
+				}
+				else if (tag.startsWith("<CE:DEF-LIST "))//28-08-2012 JADTD520 Updation
+				{
+					processedDate.append(xmlObj.processDefList());
+				}
+				else if (tag.startsWith("<CE:SECTION-TITLE "))//28-08-2012 JADTD520 Updation
+				{
+					nomenTitle= xmlObj.extractData("</CE:SECTION-TITLE>", true);
+				}
+				else if (tag.equals("<CE:PARA>") || tag.startsWith("<CE:PARA")) //04-01-2005
+				{
+					String paraView=xmlObj.getAttributeValue(tag, "VIEW");
+					if(paraView.equals("EXTENDED"))
+						processedDate.append("\r\n\\begin{extra}");
+					else if(paraView.equals("COMPACT-STANDARD"))
+						processedDate.append("\r\n\\begin{antiextra}");
+					
+					if (descFound== true)
+					{
+						processedDate.append(xmlObj.extractData("</CE:PARA>", true));
+					}
+					else
+					{
+						processedDate.append("{}");
+					}
+					if(paraView.equals("EXTENDED"))
+						processedDate.append("\r\n\\end{extra}");
+					else if(paraView.equals("COMPACT-STANDARD"))
+						processedDate.append("\r\n\\end{antiextra}");
+				}
+			}
+		}
+		String dataString= "\\begin{nomenclature}{"+nomenTitle+"}"+processedDate+"\r\n\\end{nomenclature}";
+		return dataString;
+	}
+
+
+
+/*
+	public String processAppendix()throws IOException
+	{
+		String tag              = "";
+		boolean first           = true;
+		String appid            = "";
+		String appTitl          = "";
+		String appLbl           = "";
+		String secView          = "";
+		StringBuffer appPara    = new StringBuffer();
+		StringBuffer appContents= new StringBuffer();
+		while (!tag.equals("</CE:APPENDICES>"))
+		{
+			char ch= (char)xmlObj.fin.read();
+			if (ch=='<')
+			{
+				tag= xmlObj.getTag().toUpperCase();
+				if (tag.startsWith("<CE:SECTION>") || tag.startsWith("<CE:SECTION "))
+				{
+					appid  = "";
+					appTitl= "";
+					appLbl = "";
+					appid= xmlObj.getAttributeValue(tag, "ID");
+					secView= xmlObj.getAttributeValue(tag, "VIEW");
+				}
+				else if (tag.equals("<CE:SECTION-TITLE>"))
+				{
+					appTitl= xmlObj.extractData("</CE:SECTION-TITLE>", true);
+				}
+				else if (tag.equals("<CE:LABEL>"))
+				{
+					appLbl= xmlObj.extractData("</CE:LABEL>", true);
+				}
+				else if (tag.equals("<CE:PARA>"))
+				{
+					appPara.append("\r\n\r\n"+xmlObj.extractData("</CE:PARA>", true));
+				}
+				else if (tag.equals("</CE:SECTION>"))
+				{
+					if(!secView.equals ("EXTENDED"))
+					{
+						appContents.append("\r\n\\begin{appendix}\r\n\\section{\\Secno{"+appLbl+"}");
+						if(appid.length()>0)
+							appContents.append(xmlObj.getHypertarget(appid));
+						appContents.append(appTitl+"}");
+						appContents.append("\r\n\\addbookmark"+xmlObj.bkmList.get(xmlObj.bkmCount++));
+						appContents.append("\r\n"+appPara+"\r\n\\end{appendix}");
+					}
+					appid="";
+					appLbl="";
+					appPara=new StringBuffer();
+				}
+			}
+		}
+		return appContents.toString();
+	}*/
+}

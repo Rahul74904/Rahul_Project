@@ -1,0 +1,116 @@
+//XTMain.java
+
+//MainClassForXt
+
+package tp.xt;
+
+import java.io.*;
+import java.sql.*;
+import javax.swing.*;
+import java.util.Hashtable;
+import java.util.Vector;
+import java.util.LinkedList;
+import java.util.StringTokenizer;
+import java.util.ArrayList;
+import java.util.*;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+public class XTMain
+{
+	public static void main(String [] argc)
+	{
+		System.out.println("XTMain :: Process start...");
+		//String [] ab={"tx1.xml", "app_prop.xml" ,"S100" ,"xtmain","SERVER"};
+		
+		String [] ab={argc[0]+".xml", argc[1] ,argc[2] ,"xtmain","","SERVER"};
+		
+		try{
+			String[] file=argc[0].split("_");
+			//System.out.println("----------->>>>"+System.getProperty("user.dir")+"\\log.txt");
+			File f1=new File(System.getProperty("user.dir")+"\\Log.txt");
+			
+			if(f1.exists())
+			{
+				
+				if(!f1.delete())
+				{
+					f1.deleteOnExit();
+					//System.out.println(f1+" 111Exist.....");
+
+				}
+				else
+					{
+						//System.out.println(f1+" Exist.....");
+					}
+				
+			}
+			XT xt= new XT();
+			if(xt.main_Status(ab))
+			{
+				if((argc[0]+".xml").toLowerCase().startsWith("check_"))
+				{
+					File f =new File(System.getProperty("user.dir")+"\\"+argc[0]+".tex");
+					f.renameTo(new File(System.getProperty("user.dir")+"\\"+file[1]+".tex"));
+					//System.out.println("Hello");
+					XTLogger.getInstance().info("File Renamed Successfully.....");
+					System.out.println("File Renamed Successfully......");
+				}
+				else
+				{
+					//System.out.println("33333333 Hello");
+					XTLogger.getInstance().info("[ERROR] File Not in Proper format.....");
+					System.out.println("[ERROR] File Not in Proper format.....");
+				}
+				XTLogger.getInstance().info(" File Converted Successfully.....");
+				System.out.println("File Converted Successfully.....");
+			}
+			else
+			{
+				XTLogger.getInstance().info("[ERROR] File Not Converted Successfully.....");
+				System.out.println("[ERROR] File Not Converted Successfully.....");
+			}
+			//xt.main(ab);
+			
+		}catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		
+	}
+	
+	
+	
+	private static void message(Exception ex){
+	
+		
+		
+		
+		if(XT.serverstatus.length()>0){
+			
+			StringWriter sw = new StringWriter(300);
+			 try
+	        {
+	            PrintWriter pw = new PrintWriter(sw);
+	            ex.printStackTrace(pw);
+	        }
+	        catch(Exception exception1)
+	        {
+	            exception1.printStackTrace();
+	        }
+
+			
+			XTLogger.getInstance().info("[ERROR]= "+ex.getMessage());
+			XTLogger.getInstance().info("\n"+sw.toString());
+			
+		}else{
+		
+			ex.printStackTrace()	;
+			
+		}
+		
+		
+	}
+	
+	
+	
+}
